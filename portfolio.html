@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio // Ahmed Mohamed Reyad</title>
+<meta name="description" content="SOC analyst portfolio — experience, projects, and technical skills in detection engineering, EDR, and AI-assisted security operations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0e12;
+    --panel:#11161c;
+    --paper:#e9e4d4;
+    --accent:#5b8fd9;
+    --accent-dim:#33507a;
+    --accent-2:#4f8a86;
+    --line: rgba(233,228,212,0.14);
+    --text: #cfd3d6;
+    --text-dim:#7c848c;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{ background:var(--ink); color:var(--text); font-family:var(--mono); line-height:1.6; overflow-x:hidden; }
+
+  @keyframes fadeUp{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes pulseDot{ 0%,100%{ box-shadow:0 0 6px var(--accent); opacity:1;} 50%{ box-shadow:0 0 14px var(--accent); opacity:.55;} }
+  @media (prefers-reduced-motion: reduce){ .reveal{ animation:none !important; opacity:1 !important; transform:none !important;} .case-tag::before{ animation:none !important;} }
+  .reveal{ opacity:0; animation:fadeUp .7s ease-out forwards; }
+  ::selection{ background:var(--accent); color:var(--ink); }
+  a{ color:inherit; text-decoration:none; }
+
+  .wrap{ max-width:1040px; margin:0 auto; padding:0 24px; }
+
+  header{ position:sticky; top:0; z-index:50; background:rgba(11,14,18,0.9); backdrop-filter: blur(6px); border-bottom:1px solid var(--line); }
+  .nav{ display:flex; align-items:center; justify-content:space-between; padding:16px 24px; max-width:1040px; margin:0 auto; }
+  .brand{ font-family:var(--head); font-weight:700; font-size:1.1rem; letter-spacing:.02em; color:var(--paper); }
+  .brand span{ color:var(--accent); }
+  .nav-links{ display:flex; gap:22px; font-size:.82rem; color:var(--text-dim); flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+  .nav-links a:hover{ color:var(--accent); }
+  .nav-links a.active{ color:var(--accent); }
+
+  .page-head{ padding:70px 0 40px; border-bottom:1px solid var(--line); }
+  .case-tag{ display:inline-flex; align-items:center; gap:8px; font-size:.75rem; color:var(--accent); border:1px solid var(--accent-dim); padding:5px 12px; border-radius:2px; margin-bottom:24px; letter-spacing:.03em; }
+  .case-tag::before{ content:''; width:6px; height:6px; background:var(--accent); border-radius:50%; box-shadow:0 0 8px var(--accent); animation:pulseDot 2.2s ease-in-out infinite; }
+  h1{ font-family:var(--head); color:var(--paper); font-size:clamp(2rem, 5vw, 3rem); font-weight:700; line-height:1.15; max-width:20ch; }
+  .page-sub{ margin-top:18px; max-width:60ch; color:var(--text-dim); font-size:1rem; }
+
+  .ticker{ margin-top:40px; border:1px solid var(--line); background:var(--panel); padding:16px 20px; font-size:.78rem; color:var(--text-dim); display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .ticker div span{ display:block; color:var(--accent-2); font-size:.7rem; letter-spacing:.04em; margin-bottom:4px; }
+  @media (max-width:700px){ .ticker{ grid-template-columns:repeat(2,1fr);} }
+
+  section{ padding:70px 0; border-bottom:1px solid var(--line); scroll-margin-top:76px; }
+  .kicker{ font-size:.78rem; color:var(--accent-2); letter-spacing:.04em; margin-bottom:10px; }
+  h2{ font-family:var(--head); color:var(--paper); font-size:1.9rem; max-width:24ch; margin-bottom:20px; }
+  .lead{ color:var(--text-dim); max-width:64ch; font-size:.98rem; }
+
+  .cap-grid{ margin-top:40px; display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); }
+  .cap{ background:var(--ink); padding:28px 24px; }
+  .cap h3{ font-family:var(--head); color:var(--paper); font-size:1.02rem; margin-bottom:12px; }
+  .cap ul{ list-style:none; }
+  .cap li{ color:var(--text-dim); font-size:.85rem; padding:3px 0; }
+  .cap li::before{ content:'— '; color:var(--accent-dim); }
+
+  .xp{ display:grid; grid-template-columns:150px 1fr; gap:24px; padding:26px 0; border-top:1px solid var(--line); }
+  .xp:first-of-type{ border-top:none; }
+  .xp .when{ color:var(--accent); font-size:.8rem; padding-top:4px; }
+  .xp h3{ font-family:var(--head); color:var(--paper); font-size:1.1rem; }
+  .xp .role{ color:var(--accent-2); font-size:.82rem; margin:4px 0 10px; }
+  .xp p, .xp li{ color:var(--text-dim); font-size:.9rem; }
+  .xp ul{ margin-top:6px; padding-inline-start:0; list-style:none; }
+  .xp li{ padding:3px 0; }
+  .xp li::before{ content:'— '; color:var(--accent-dim); }
+  @media (max-width:640px){ .xp{ grid-template-columns:1fr; } }
+
+  .case{ display:grid; grid-template-columns:130px 1fr; gap:24px; padding:26px 0; border-top:1px solid var(--line); }
+  .case:first-of-type{ border-top:none; }
+  .case .id{ color:var(--accent); font-size:.8rem; padding-top:4px; }
+  .case h3{ font-family:var(--head); color:var(--paper); font-size:1.12rem; margin-bottom:4px; }
+  .case .role{ color:var(--accent-2); font-size:.8rem; margin-bottom:10px; display:block; }
+  .case p{ color:var(--text-dim); font-size:.9rem; max-width:60ch; }
+  .case .tags{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .case .tags span{ font-size:.72rem; color:var(--text-dim); border:1px solid var(--line); padding:3px 9px; border-radius:2px; }
+  @media (max-width:600px){ .case{ grid-template-columns:1fr; } }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:20px; }
+  .two-col h3{ font-family:var(--head); color:var(--paper); font-size:1rem; margin-bottom:14px; }
+  .two-col li{ color:var(--text-dim); font-size:.88rem; padding:6px 0; border-top:1px solid var(--line); }
+  .two-col li:first-of-type{ border-top:none; }
+  .two-col li b{ color:var(--text); font-weight:500; }
+  @media (max-width:700px){ .two-col{ grid-template-columns:1fr; } }
+
+  .contact-grid{ display:flex; gap:40px; flex-wrap:wrap; margin-top:32px; }
+  .contact-item{ font-size:.9rem; }
+  .contact-item span{ display:block; color:var(--accent-2); font-size:.72rem; margin-bottom:6px; }
+  .contact-item a:hover{ color:var(--accent); }
+
+  footer{ padding:30px 0; text-align:center; color:var(--text-dim); font-size:.78rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="nav wrap">
+    <div class="brand">0x<span>REYAD</span></div>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/portfolio.html" class="active">Portfolio</a>
+      <a href="/writeups.html">Writeups</a>
+      <a href="#projects">Projects</a>
+      <a href="#skills">Technical Skills</a>
+      <a href="#certificates">Certificates &amp; Courses</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </nav>
+</header>
+
+<section class="page-head">
+  <div class="wrap">
+    <div class="case-tag reveal" style="animation-delay:.05s">STATUS: ACTIVELY MONITORING</div>
+    <h1 class="reveal" style="animation-delay:.18s">Portfolio</h1>
+    <p class="page-sub reveal" style="animation-delay:.32s">
+      Experience, projects, and the tools I work in — SIEM/EDR investigation, detection engineering, and AI-driven SOC automation.
+    </p>
+    <div class="ticker reveal" style="animation-delay:.46s">
+      <div><span>ROLE</span>SOC Analyst</div>
+      <div><span>FOCUS</span>Detection &amp; Automation</div>
+      <div><span>CERT</span>eCIR (INE, 2025)</div>
+      <div><span>BASED IN</span>Cairo, EG</div>
+    </div>
+  </div>
+</section>
+
+<section id="experience">
+  <div class="wrap">
+    <div class="kicker">PROFESSIONAL EXPERIENCE</div>
+    <h2>Where I've worked</h2>
+
+    <div class="xp">
+      <div class="when">Oct 2025 —<br>Present</div>
+      <div>
+        <h3>ZeroSploitMEA</h3>
+        <span class="role">SOC Analyst</span>
+        <ul>
+          <li>Monitor and investigate security alerts across enterprise SIEM and EDR platforms.</li>
+          <li>Improve detection logic and support false-positive reduction initiatives.</li>
+          <li>Develop and integrate AI-driven security workflows and agents (Brigade) to support alert triage, investigation, enrichment, analysis, and case handling.</li>
+          <li>Integrate security data and capabilities from SIEM, EDR, XDR, SOAR, and other security APIs into automated workflows.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="projects">
+  <div class="wrap">
+    <div class="kicker">PROJECTS</div>
+    <h2>What I've built</h2>
+
+    <div class="case">
+      <div class="id">01</div>
+      <div>
+        <h3>CyberNerve — AI-Native Security Operations Platform</h3>
+        <span class="role">AI Security Automation Engineer</span>
+        <p>An AI-native platform designed to augment SOC teams and automate security operations. Built agentic workflows that automate alert triage, investigation, analysis, enrichment, and case handling, integrating SIEM, EDR, XDR, cloud services, and security APIs into one unified SOC workflow.</p>
+        <div class="tags"><span>n8n</span><span>AI Agents</span><span>SIEM/EDR/XDR</span></div>
+      </div>
+    </div>
+
+    <div class="case">
+      <div class="id">02</div>
+      <div>
+        <h3>Falcon Copilot — Chrome Extension</h3>
+        <span class="role">AI-Assisted CrowdStrike Falcon Investigation Assistant</span>
+        <p>An analyst-facing browser extension that assists SOC analysts during investigations inside CrowdStrike Falcon, connected to an AI-powered investigation backend (Brigade) for contextual assistance. Designed as an analyst copilot — supporting the human investigator, not replacing them.</p>
+        <div class="tags"><span>CrowdStrike Falcon</span><span>LogScale</span><span>Chrome Extension</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="skills">
+  <div class="wrap">
+    <div class="kicker">TECHNICAL SKILLS</div>
+    <h2>Tools and disciplines I work in</h2>
+
+    <div class="cap-grid">
+      <div class="cap">
+        <h3>SIEM &amp; Detection Engineering</h3>
+        <ul>
+          <li>Splunk, Wazuh, ELK Stack, IBM QRadar</li>
+          <li>Detection rule analysis &amp; optimization</li>
+          <li>MITRE ATT&amp;CK mapping</li>
+          <li>Telemetry coverage validation</li>
+          <li>Log correlation &amp; threat hunting</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <h3>Endpoint Security (EDR)</h3>
+        <ul>
+          <li>CrowdStrike Falcon</li>
+          <li>Microsoft Defender for Endpoint</li>
+          <li>Symantec Endpoint Detection &amp; Response</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <h3>Security Automation &amp; Orchestration</h3>
+        <ul>
+          <li>n8n (SOAR-style workflows)</li>
+          <li>AI integration for detection &amp; vulnerability analysis</li>
+          <li>API integration (Kibana, Nessus)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div id="certificates" style="scroll-margin-top:90px;">
+        <h3>Certificates &amp; Courses</h3>
+        <ul>
+          <li><b>eCIR</b> — eLearnSecurity Certified Incident Responder, INE, 2025</li>
+          <li><b>SANS SEC504</b> — Hacker Tools, Techniques, and Incident Handling</li>
+          <li><b>SANS SEC555</b> — Detection Engineering and SIEM Analytics</li>
+          <li><b>SANS SEC450</b> — Blue Team Fundamentals</li>
+          <li><b>Effective Threat Investigator for SOC Analysts</b> — Mostafa Yahia</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Education &amp; Languages</h3>
+        <ul>
+          <li><b>B.Sc. Computer and AI</b> — Sohag University, 2021–2025 (Very Good, 3.04/4)</li>
+          <li><b>Arabic</b> — Native</li>
+          <li><b>English</b> — Professional working proficiency</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="kicker">CONTACT</div>
+    <h2>Open to collaboration and technical discussion</h2>
+    <div class="contact-grid">
+      <div class="contact-item"><span>EMAIL</span><a href="mailto:reyadjr0x1@gmail.com">reyadjr0x1@gmail.com</a></div>
+      <div class="contact-item"><span>LINKEDIN</span><a href="#">Ahmed Reyad</a></div>
+      <div class="contact-item"><span>GITHUB</span><a href="#">GitHub</a></div>
+      <div class="contact-item"><span>LOCATION</span>Cairo, Egypt</div>
+    </div>
+  </div>
+</section>
+
+<footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
+
+</body>
+</html>
