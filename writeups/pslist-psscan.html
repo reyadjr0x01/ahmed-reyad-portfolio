@@ -228,11 +228,370 @@ python vol.py -f memory.raw windows.psscan</code></pre>
     <h3>_EPROCESS — the Windows process object</h3>
     <p>Windows represents each process with an internal kernel structure called <code>_EPROCESS</code>, containing fields such as <code>UniqueProcessId</code>, <code>InheritedFromUniqueProcessId</code>, <code>ImageFileName</code>, <code>ActiveProcessLinks</code>, <code>Peb</code>, and <code>ObjectTable</code>. The exact layout isn't fixed across Windows versions and builds — fields move and get reinterpreted. What matters for forensics is the concept: an <code>_EPROCESS</code> object represents a process inside kernel memory. One field is central to <code>pslist</code>: <code>ActiveProcessLinks</code>.</p>
 
-    <section class="inline-dev eprocess-inline">
-  <div class="inline-dev-label"><span>LIVE DEV</span> · _EPROCESS STRUCTURE MAP</div>
-  <eprocess-map-dev></eprocess-map-dev>
-  <div class="inline-dev-caption">Interactive dev — click pointer fields or linked structures to trace the relationship.</div>
-</section>
+    <style>.eprocess-dev :root{
+    --bg-color: #0b0e12;
+    --card-bg: #111620;
+    --card-border: rgba(233,228,212,0.14);
+    --text-primary: #e9e4d4;
+    --text-secondary: #7c848c;
+    --accent-core: #6fb3ad;
+    --accent-tag: #d9a45b;
+    --accent-ptr: #5b8fd9;
+    --accent-alert: #d9705f;
+    --accent-embed: #8f8ad0;
+  }.eprocess-dev *{ box-sizing: border-box; margin: 0; padding: 0; }.eprocess-dev html, .eprocess-dev body{
+    height: 100%;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }.eprocess-dev body{
+    padding: 20px 18px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    min-height: 100%;
+  }.eprocess-dev .page{ width: 100%; max-width: 1180px; }.eprocess-dev header{
+    display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--card-border); padding-bottom: 12px;
+  }.eprocess-dev h1{
+    font-size: 1.1rem; letter-spacing: 0.4px; display: flex; align-items: center; gap: 9px;
+  }.eprocess-dev h1::before{
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-core); box-shadow: 0 0 9px var(--accent-core); flex-shrink: 0;
+  }.eprocess-dev .subtitle{ color: var(--text-secondary); font-size: 0.74rem; }.eprocess-dev .map{
+    position: relative; display: grid;
+    grid-template-columns: 1fr 1.15fr 1fr; grid-template-rows: auto auto auto;
+    gap: 20px 36px; align-items: center;
+  }.eprocess-dev svg#links{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }.eprocess-dev .node{
+    position: relative; z-index: 2; background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 7px; padding: 11px 13px; font-size: 0.68rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  }.eprocess-dev .node-title{
+    font-size: 0.72rem; font-weight: bold; display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--card-border); padding-bottom: 5px; margin-bottom: 7px;
+  }.eprocess-dev .node-title .badge{ font-size: 0.58rem; font-weight: normal; color: var(--text-secondary); }.eprocess-dev .row{ display: flex; justify-content: space-between; gap: 9px; padding: 2px 0; }.eprocess-dev .row .k{ color: var(--text-secondary); }.eprocess-dev .row .v{ text-align: right; }.eprocess-dev .note{ color: var(--text-secondary); font-size: 0.6rem; margin-top: 7px; line-height: 1.5; }.eprocess-dev .eprocess{
+    grid-column: 2; grid-row: 2; border-color: var(--accent-core);
+    box-shadow: 0 0 26px rgba(111,179,173,0.16); background: rgba(17,22,32,0.97);
+    width: 100%; max-width: 380px; justify-self: center;
+  }.eprocess-dev .eprocess .node-title{ color: var(--accent-core); }.eprocess-dev .row.ptr .v{ color: var(--accent-ptr); }.eprocess-dev .row.embedded .v{ color: var(--accent-embed); }.eprocess-dev .peb{ grid-column: 1; grid-row: 1; }.eprocess-dev .handletable{ grid-column: 3; grid-row: 1; }.eprocess-dev .token{ grid-column: 1; grid-row: 2; }.eprocess-dev .vad{ grid-column: 3; grid-row: 2; }.eprocess-dev .links-list{ grid-column: 1; grid-row: 3; }.eprocess-dev .threads{ grid-column: 3; grid-row: 3; }.eprocess-dev .satellite .node-title{ color: var(--accent-tag); }.eprocess-dev .satellite.peb .node-title{ color: var(--accent-ptr); }.eprocess-dev .satellite.links-list .node-title{ color: var(--accent-alert); }.eprocess-dev .satellite{ cursor: pointer; transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease; }.eprocess-dev .satellite:hover{ border-color: var(--accent-ptr); }.eprocess-dev .satellite.active{ border-color: var(--accent-ptr); box-shadow: 0 0 22px rgba(91,143,217,0.3); }.eprocess-dev .satellite.links-list.active{ border-color: var(--accent-alert); box-shadow: 0 0 22px rgba(217,112,95,0.3); }.eprocess-dev .map.has-selection .satellite:not(.active){ opacity: 0.4; }.eprocess-dev .row.ptr{ cursor: pointer; border-radius: 4px; transition: background 0.2s ease, color 0.2s ease; }.eprocess-dev .row.ptr:hover{ background: rgba(91,143,217,0.08); }.eprocess-dev .row.ptr.active{ background: rgba(91,143,217,0.14); }.eprocess-dev .row.ptr.active .k{ color: var(--text-primary); }.eprocess-dev .row.ptr[data-target="links-list"].active{ background: rgba(217,112,95,0.12); }.eprocess-dev .detail-panel{
+    border: 1px solid var(--card-border); border-radius: 7px; background: var(--card-bg);
+    padding: 11px 15px; font-size: 0.68rem; color: var(--text-secondary); line-height: 1.6;
+    min-height: 18px; transition: border-color 0.25s ease;
+  }.eprocess-dev .detail-panel.active{ border-color: var(--accent-ptr); color: var(--text-primary); }.eprocess-dev .detail-panel .dp-title{ font-weight: bold; color: var(--accent-ptr); margin-bottom: 4px; display: none; }.eprocess-dev .detail-panel.active .dp-title{ display: block; }.eprocess-dev .flag-row{
+    background: rgba(217,112,95,0.08); border: 1px solid rgba(217,112,95,0.25); border-radius: 6px;
+    padding: 7px 9px; font-size: 0.6rem; color: var(--accent-alert); margin-top: 7px;
+  }.eprocess-dev .legend{
+    display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.63rem; color: var(--text-secondary);
+    border-top: 1px solid var(--card-border); padding-top: 11px; margin-top: 6px;
+  }.eprocess-dev .legend .item{ display: flex; align-items: center; gap: 6px; }.eprocess-dev .swatch{ width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+  @media (max-width: 820px) {
+    .map { grid-template-columns: 1fr; grid-template-rows: none; }.eprocess-dev .eprocess, .eprocess-dev .peb, .eprocess-dev .handletable, .eprocess-dev .token, .eprocess-dev .vad, .eprocess-dev .links-list, .eprocess-dev .threads{
+      grid-column: 1; grid-row: auto; max-width: 100%;
+    }.eprocess-dev svg#links{ display: none; }
+  }
+</style><section class="inline-dev eprocess-inline">
+<div class="inline-dev-label"><span>LIVE DEV</span> · _EPROCESS STRUCTURE MAP</div>
+<div class="eprocess-dev" id="eprocessDev">
+<div class="page">
+  <header>
+    <h1>_EPROCESS STRUCTURE MAP</h1>
+    <div class="subtitle">Windows kernel process object — undocumented structure, exact offsets vary by build (inspect with <span style="color:var(--accent-tag)">WinDbg: dt nt!_EPROCESS</span> or Volatility's symbol table)</div>
+  </header>
+
+  <div class="map" id="map">
+    <svg id="links"></svg>
+
+    <div class="node satellite peb" id="peb">
+      <div class="node-title">_PEB <span class="badge">Process Environment Block</span></div>
+      <div class="row"><span class="k">ImageBaseAddress</span><span class="v">0x00400000</span></div>
+      <div class="row"><span class="k">Ldr</span><span class="v">_PEB_LDR_DATA*</span></div>
+      <div class="row"><span class="k">ProcessParameters</span><span class="v">cmdline, env</span></div>
+      <div class="note">Lives in user-space, not the kernel pool — only reliably readable while a thread is executing in this process's context.</div>
+    </div>
+
+    <div class="node satellite handletable" id="handletable">
+      <div class="node-title">_HANDLE_TABLE <span class="badge">ObjectTable</span></div>
+      <div class="row"><span class="k">HandleCount</span><span class="v">142</span></div>
+      <div class="row"><span class="k">TableCode</span><span class="v">handle → object</span></div>
+      <div class="note">Every open handle (file, registry key, mutex, another process) resolves through here — a key artifact for reconstructing what a process touched.</div>
+    </div>
+
+    <div class="node satellite token" id="token">
+      <div class="node-title">_TOKEN <span class="badge">via EX_FAST_REF</span></div>
+      <div class="row"><span class="k">UserSid</span><span class="v">S-1-5-21-...</span></div>
+      <div class="row"><span class="k">Privileges</span><span class="v">SeDebugPrivilege...</span></div>
+      <div class="row"><span class="k">IntegrityLevel</span><span class="v">Medium / High / System</span></div>
+      <div class="note">Security context the process runs under — privilege escalation and token theft both show up here.</div>
+    </div>
+
+    <div class="node satellite vad" id="vad">
+      <div class="node-title">VAD TREE <span class="badge">VadRoot</span></div>
+      <div class="row"><span class="k">Structure</span><span class="v">self-balancing AVL tree</span></div>
+      <div class="row"><span class="k">Leaves</span><span class="v">mapped regions, DLLs, heaps</span></div>
+      <div class="note">Walking this tree reveals injected code, unbacked executable memory, and reflectively-loaded modules.</div>
+    </div>
+
+    <div class="node satellite links-list" id="links-list">
+      <div class="node-title">ActiveProcessLinks <span class="badge">LIST_ENTRY</span></div>
+      <div class="row"><span class="k">Flink</span><span class="v">→ next _EPROCESS</span></div>
+      <div class="row"><span class="k">Blink</span><span class="v">→ prev _EPROCESS</span></div>
+      <div class="flag-row">A rootkit that unlinks itself here disappears from PsActiveProcessHead-walking tools (tasklist, pslist) — but its pool allocation is still there for <span style="color:var(--accent-core)">psscan</span> to find.</div>
+    </div>
+
+    <div class="node satellite threads" id="threads">
+      <div class="node-title">ThreadListHead <span class="badge">→ _ETHREAD list</span></div>
+      <div class="row"><span class="k">Each entry</span><span class="v">_ETHREAD</span></div>
+      <div class="row"><span class="k">Contains</span><span class="v">start address, TEB, stack</span></div>
+      <div class="note">Thread start addresses are another injection tell: a thread starting outside any mapped module is suspicious.</div>
+    </div>
+
+    <div class="node eprocess" id="eprocess">
+      <div class="node-title">_EPROCESS <span class="badge">offset +0x00</span></div>
+      <div class="row embedded"><span class="k">Pcb</span><span class="v">_KPROCESS (embedded)</span></div>
+      <div class="row"><span class="k">UniqueProcessId</span><span class="v">4820</span></div>
+      <div class="row"><span class="k">ImageFileName</span><span class="v">svchost_mal.exe</span></div>
+      <div class="row"><span class="k">InheritedFromUniqueProcessId</span><span class="v">1480</span></div>
+      <div class="row ptr" data-target="links-list"><span class="k">ActiveProcessLinks</span><span class="v">LIST_ENTRY →</span></div>
+      <div class="row ptr" data-target="peb"><span class="k">Peb</span><span class="v">_PEB* →</span></div>
+      <div class="row ptr" data-target="handletable"><span class="k">ObjectTable</span><span class="v">_HANDLE_TABLE* →</span></div>
+      <div class="row ptr" data-target="token"><span class="k">Token</span><span class="v">_TOKEN* →</span></div>
+      <div class="row ptr" data-target="vad"><span class="k">VadRoot</span><span class="v">_MMVAD* →</span></div>
+      <div class="row ptr" data-target="threads"><span class="k">ThreadListHead</span><span class="v">LIST_ENTRY →</span></div>
+    </div>
+  </div>
+
+  <div class="detail-panel" id="detailPanel">
+    <div class="dp-title" id="dpTitle"></div>
+    <div id="dpBody">Click a pointer field on <span style="color:var(--accent-core)">_EPROCESS</span>, or one of the linked structures, to trace the relationship.</div>
+  </div>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--accent-core)"></span> _EPROCESS core fields</div>
+    <div class="item"><span class="swatch" style="background:var(--accent-ptr)"></span> pointer field (leads to satellite structure)</div>
+    <div class="item"><span class="swatch" style="background:var(--accent-embed)"></span> embedded structure (not a pointer)</div>
+    <div class="item"><span class="swatch" style="background:var(--accent-alert)"></span> linked-list field abused by DKOM</div>
+  </div>
+</div>
+
+<script>
+  const svg = document.getElementById('links');
+  const mapEl = document.getElementById('map');
+  const center = document.getElementById('eprocess');
+  const satellites = ['peb','handletable','token','vad','links-list','threads'];
+  const detailPanel = document.getElementById('detailPanel');
+  const dpTitle = document.getElementById('dpTitle');
+  const dpBody = document.getElementById('dpBody');
+
+  const details = {
+    peb: {
+      title: '_EPROCESS.Peb → _PEB',
+      body: 'A pointer into the process\'s own user-mode address space. It only resolves correctly while a thread from this process is the one executing — reading it from an arbitrary kernel context can return garbage, which is why memory analysis tools cross-check it against the process\'s page directory (DirectoryTableBase) first.'
+    },
+    handletable: {
+      title: '_EPROCESS.ObjectTable → _HANDLE_TABLE',
+      body: 'A pointer to the table mapping every open handle in the process to the kernel object it refers to. Enumerating it reconstructs what files, registry keys, mutexes, pipes, or other processes this process had open at capture time — often the clearest evidence of what it was doing.'
+    },
+    token: {
+      title: '_EPROCESS.Token → _TOKEN',
+      body: 'A packed pointer (EX_FAST_REF, low bits used as a reference count) to the security token defining the process\'s identity and privileges. Token theft — copying a SYSTEM token\'s pointer into a lower-privileged process — is a classic privilege-escalation technique that shows up as a mismatched Token address here.'
+    },
+    vad: {
+      title: '_EPROCESS.VadRoot → VAD tree',
+      body: 'Root of a self-balancing tree of Virtual Address Descriptors, one per mapped memory region. Walking it lists every mapped module, heap, and stack — and any region marked executable with no backing file on disk is a strong indicator of code injection or reflective loading.'
+    },
+    'links-list': {
+      title: '_EPROCESS.ActiveProcessLinks',
+      body: 'A LIST_ENTRY (Flink/Blink pair) threading every running _EPROCESS into one doubly linked list, rooted at PsActiveProcessHead. Tools like tasklist and pslist simply walk this list — so a rootkit that unlinks its own entry (DKOM) vanishes from them instantly. The pool allocation itself is untouched, which is exactly what psscan exploits: it scans raw kernel pool for the \'Proc\' tag instead of walking the list.'
+    },
+    threads: {
+      title: '_EPROCESS.ThreadListHead → _ETHREAD list',
+      body: 'Head of the list of _ETHREAD structures belonging to this process. Each thread record includes its start address and TEB — a thread whose start address doesn\'t land inside any module listed in the VAD tree is a common signature of shellcode running via process injection.'
+    }
+  };
+
+  function setSelection(id) {
+    const isSame = mapEl.dataset.selected === id;
+    const target = isSame ? null : id;
+    mapEl.dataset.selected = target || '';
+    mapEl.classList.toggle('has-selection', !!target);
+
+    satellites.forEach(sid => {
+      document.getElementById(sid).classList.toggle('active', sid === target);
+    });
+    document.querySelectorAll('.row.ptr').forEach(row => {
+      row.classList.toggle('active', row.dataset.target === target);
+    });
+
+    if (target) {
+      detailPanel.classList.add('active');
+      dpTitle.textContent = details[target].title;
+      dpBody.textContent = details[target].body;
+    } else {
+      detailPanel.classList.remove('active');
+      dpTitle.textContent = '';
+      dpBody.innerHTML = 'Click a pointer field on <span style="color:var(--accent-core)">_EPROCESS</span>, or one of the linked structures, to trace the relationship.';
+    }
+    drawLinks();
+  }
+
+  satellites.forEach(id => {
+    document.getElementById(id).addEventListener('click', () => setSelection(id));
+  });
+  document.querySelectorAll('.row.ptr').forEach(row => {
+    row.addEventListener('click', () => setSelection(row.dataset.target));
+  });
+
+  function drawLinks() {
+    if (window.innerWidth <= 820) { svg.innerHTML = ''; return; }
+    const rect = mapEl.getBoundingClientRect();
+    const c = center.getBoundingClientRect();
+    const selected = mapEl.dataset.selected || null;
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+
+    satellites.forEach(id => {
+      const el = document.getElementById(id);
+      const r = el.getBoundingClientRect();
+      const cx = c.left + c.width/2 - rect.left;
+      const cy = c.top + c.height/2 - rect.top;
+      const isLeft = r.left < c.left;
+      const sx = (isLeft ? r.right : r.left) - rect.left;
+      const sy = r.top + r.height/2 - rect.top;
+
+      const isActive = id === selected;
+      const isDimmed = selected && !isActive;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      const midX = (sx + cx) / 2;
+      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${cy}, ${cx} ${cy}`;
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', isActive ? (id === 'links-list' ? '#d9705f' : '#5b8fd9') : (id === 'links-list' ? '#d9705f' : '#2a3340'));
+      path.setAttribute('stroke-width', isActive ? '2.5' : '1.5');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('opacity', isDimmed ? '0.15' : (isActive ? '1' : '0.7'));
+      if (isActive) {
+        path.style.filter = id === 'links-list'
+          ? 'drop-shadow(0 0 4px rgba(217,112,95,0.6))'
+          : 'drop-shadow(0 0 4px rgba(91,143,217,0.6))';
+      }
+      svg.appendChild(path);
+    });
+  }
+
+  window.addEventListener('load', drawLinks);
+  window.addEventListener('resize', drawLinks);
+</script>
+</div>
+<div class="inline-dev-caption">Interactive dev — click pointer fields or linked structures to trace the relationship.</div>
+</section><script>(function(){const epRoot=document.getElementById('eprocessDev');
+  const svg = root.querySelector('#links');
+  const mapEl = root.querySelector('#map');
+  const center = root.querySelector('#eprocess');
+  const satellites = ['peb','handletable','token','vad','links-list','threads'];
+  const detailPanel = root.querySelector('#detailPanel');
+  const dpTitle = root.querySelector('#dpTitle');
+  const dpBody = root.querySelector('#dpBody');
+
+  const details = {
+    peb: {
+      title: '_EPROCESS.Peb → _PEB',
+      body: 'A pointer into the process\'s own user-mode address space. It only resolves correctly while a thread from this process is the one executing — reading it from an arbitrary kernel context can return garbage, which is why memory analysis tools cross-check it against the process\'s page directory (DirectoryTableBase) first.'
+    },
+    handletable: {
+      title: '_EPROCESS.ObjectTable → _HANDLE_TABLE',
+      body: 'A pointer to the table mapping every open handle in the process to the kernel object it refers to. Enumerating it reconstructs what files, registry keys, mutexes, pipes, or other processes this process had open at capture time — often the clearest evidence of what it was doing.'
+    },
+    token: {
+      title: '_EPROCESS.Token → _TOKEN',
+      body: 'A packed pointer (EX_FAST_REF, low bits used as a reference count) to the security token defining the process\'s identity and privileges. Token theft — copying a SYSTEM token\'s pointer into a lower-privileged process — is a classic privilege-escalation technique that shows up as a mismatched Token address here.'
+    },
+    vad: {
+      title: '_EPROCESS.VadRoot → VAD tree',
+      body: 'Root of a self-balancing tree of Virtual Address Descriptors, one per mapped memory region. Walking it lists every mapped module, heap, and stack — and any region marked executable with no backing file on disk is a strong indicator of code injection or reflective loading.'
+    },
+    'links-list': {
+      title: '_EPROCESS.ActiveProcessLinks',
+      body: 'A LIST_ENTRY (Flink/Blink pair) threading every running _EPROCESS into one doubly linked list, rooted at PsActiveProcessHead. Tools like tasklist and pslist simply walk this list — so a rootkit that unlinks its own entry (DKOM) vanishes from them instantly. The pool allocation itself is untouched, which is exactly what psscan exploits: it scans raw kernel pool for the \'Proc\' tag instead of walking the list.'
+    },
+    threads: {
+      title: '_EPROCESS.ThreadListHead → _ETHREAD list',
+      body: 'Head of the list of _ETHREAD structures belonging to this process. Each thread record includes its start address and TEB — a thread whose start address doesn\'t land inside any module listed in the VAD tree is a common signature of shellcode running via process injection.'
+    }
+  };
+
+  function setSelection(id) {
+    const isSame = mapEl.dataset.selected === id;
+    const target = isSame ? null : id;
+    mapEl.dataset.selected = target || '';
+    mapEl.classList.toggle('has-selection', !!target);
+
+    satellites.forEach(sid => {
+      document.getElementById(sid).classList.toggle('active', sid === target);
+    });
+    root.querySelectorAll('.row.ptr').forEach(row => {
+      row.classList.toggle('active', row.dataset.target === target);
+    });
+
+    if (target) {
+      detailPanel.classList.add('active');
+      dpTitle.textContent = details[target].title;
+      dpBody.textContent = details[target].body;
+    } else {
+      detailPanel.classList.remove('active');
+      dpTitle.textContent = '';
+      dpBody.innerHTML = 'Click a pointer field on <span style="color:var(--accent-core)">_EPROCESS</span>, or one of the linked structures, to trace the relationship.';
+    }
+    drawLinks();
+  }
+
+  satellites.forEach(id => {
+    document.getElementById(id).addEventListener('click', () => setSelection(id));
+  });
+  root.querySelectorAll('.row.ptr').forEach(row => {
+    row.addEventListener('click', () => setSelection(row.dataset.target));
+  });
+
+  function drawLinks() {
+    if (window.innerWidth <= 820) { svg.innerHTML = ''; return; }
+    const rect = mapEl.getBoundingClientRect();
+    const c = center.getBoundingClientRect();
+    const selected = mapEl.dataset.selected || null;
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+
+    satellites.forEach(id => {
+      const el = document.getElementById(id);
+      const r = el.getBoundingClientRect();
+      const cx = c.left + c.width/2 - rect.left;
+      const cy = c.top + c.height/2 - rect.top;
+      const isLeft = r.left < c.left;
+      const sx = (isLeft ? r.right : r.left) - rect.left;
+      const sy = r.top + r.height/2 - rect.top;
+
+      const isActive = id === selected;
+      const isDimmed = selected && !isActive;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      const midX = (sx + cx) / 2;
+      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${cy}, ${cx} ${cy}`;
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', isActive ? (id === 'links-list' ? '#d9705f' : '#5b8fd9') : (id === 'links-list' ? '#d9705f' : '#2a3340'));
+      path.setAttribute('stroke-width', isActive ? '2.5' : '1.5');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('opacity', isDimmed ? '0.15' : (isActive ? '1' : '0.7'));
+      if (isActive) {
+        path.style.filter = id === 'links-list'
+          ? 'drop-shadow(0 0 4px rgba(217,112,95,0.6))'
+          : 'drop-shadow(0 0 4px rgba(91,143,217,0.6))';
+      }
+      svg.appendChild(path);
+    });
+  }
+
+  setTimeout(drawLinks, 0);
+  window.addEventListener('resize', drawLinks);
+})();</script>
 
     <h3>What is ActiveProcessLinks?</h3>
     <p><code>ActiveProcessLinks</code> is a linked-list entry embedded inside <code>_EPROCESS</code>, using the Windows <code>LIST_ENTRY</code> concept (a <code>Flink</code>/<code>Blink</code> pair). Windows maintains a doubly linked list of active processes, with a head commonly associated with <code>PsActiveProcessHead</code>:</p>
@@ -271,11 +630,526 @@ but is no longer linked into the active process list.</pre>
          no  -&gt; ignore / invalid candidate</pre>
     <p>It's not simply "find the word Proc and call it a process" — the scanner combines the tag with the surrounding memory structure and expected process-object characteristics. This is why <code>psscan</code> can potentially find a process even when it's no longer connected to the active process list.</p>
 
-    <section class="inline-dev psscan-inline">
-  <div class="inline-dev-label"><span>LIVE DEV</span> · PSSCAN PROCESS OBJECT DISCOVERY</div>
-  <psscan-visualizer-dev></psscan-visualizer-dev>
-  <div class="inline-dev-caption">Interactive dev — the animation shows how <code>windows.psscan</code> scans kernel pool allocations and validates a candidate <code>_EPROCESS</code>.</div>
-</section>
+    <style>.psscan-dev :root{
+        --bg-color: #0b0e12;
+        --card-bg: #111620;
+        --card-border: rgba(233,228,212,0.14);
+        --text-primary: #e9e4d4;
+        --text-secondary: #7c848c;
+        --accent-scan: #5b8fd9;
+        --accent-match: #6fb3ad;
+        --accent-tag: #d9a45b;
+        --accent-alert: #d9705f;
+        --highlight-bg: rgba(111, 179, 173, 0.14);
+        --tag-bg: rgba(217, 164, 91, 0.14);
+        --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }.psscan-dev *{ box-sizing: border-box; margin: 0; padding: 0; }.psscan-dev html, .psscan-dev body{ width: 100%; height: 100%; }.psscan-dev body{
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        font-family: var(--mono);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }.psscan-dev .container{
+        width: 100%;
+        height: 100%;
+        background-color: var(--bg-color);
+        border: 1px solid var(--card-border);
+        position: relative;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border-radius: 6px;
+        overflow: hidden;
+    }.psscan-dev .progress-bar-container{
+        position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+        background: rgba(233,228,212,0.08); z-index: 50;
+    }.psscan-dev .progress-bar{
+        height: 100%; width: 0%;
+        background: linear-gradient(90deg, var(--accent-scan), var(--accent-tag), var(--accent-match));
+        transition: width 0.1s linear;
+    }.psscan-dev .header{
+        display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid var(--card-border); padding-bottom: 8px; z-index: 10;
+    }.psscan-dev .title{
+        font-size: 0.82rem; color: var(--text-primary); letter-spacing: 1.2px;
+        display: flex; align-items: center; gap: 9px; font-weight: 700;
+    }.psscan-dev .title::before{
+        content: ''; display: inline-block; width: 7px; height: 7px;
+        background-color: var(--accent-tag); border-radius: 50%;
+        box-shadow: 0 0 8px var(--accent-tag);
+    }.psscan-dev .status-badge{
+        font-size: 0.68rem; color: var(--accent-scan);
+        background: rgba(91, 143, 217, 0.1); padding: 3px 10px; border-radius: 4px;
+        border: 1px solid rgba(91, 143, 217, 0.3); letter-spacing: 0.4px;
+        transition: all 0.3s ease; font-weight: 600;
+    }.psscan-dev .stage-area{
+        position: relative; flex-grow: 1; margin: 10px 0;
+        border: 1px dashed var(--card-border); border-radius: 5px;
+        background: radial-gradient(circle at center, rgba(17,22,32,0.6) 0%, rgba(11,14,18,0.95) 100%);
+        overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }.psscan-dev .grid-bg{
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background-image:
+            linear-gradient(to right, rgba(233,228,212,0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(233,228,212,0.05) 1px, transparent 1px);
+        background-size: 22px 22px; pointer-events: none;
+    }.psscan-dev .scene{
+        position: absolute; width: 100%; height: 100%;
+        display: flex; justify-content: center; align-items: center;
+        opacity: 0; transition: opacity 0.5s ease; pointer-events: none; padding: 12px;
+    }.psscan-dev .scene.active{ opacity: 1; pointer-events: auto; }.psscan-dev .memory-image-box{
+        width: 84%; height: 78%; background: rgba(17,22,32,0.9);
+        border: 2px solid var(--accent-scan); border-radius: 8px;
+        box-shadow: 0 0 26px rgba(91,143,217,0.14);
+        display: flex; flex-direction: column; padding: 14px; gap: 10px; position: relative;
+    }.psscan-dev .memory-title{
+        font-size: 0.78rem; color: var(--accent-scan); font-weight: bold;
+        display: flex; justify-content: space-between; border-bottom: 1px solid rgba(91,143,217,0.25);
+        padding-bottom: 5px;
+    }.psscan-dev .memory-regions{ display: flex; flex-grow: 1; gap: 10px; }.psscan-dev .region{
+        border: 1px solid var(--card-border); border-radius: 4px; padding: 8px;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        font-size: 0.68rem; color: var(--text-secondary); background: rgba(255,255,255,0.015);
+        transition: all 0.4s ease;
+    }.psscan-dev .region.user-space{ flex: 2; }.psscan-dev .region.kernel-pool{
+        flex: 3; border-color: var(--accent-tag); background: rgba(217,164,91,0.05);
+        color: var(--accent-tag); position: relative; box-shadow: 0 0 16px rgba(217,164,91,0.08);
+    }.psscan-dev .region.hardware{ flex: 1; }.psscan-dev .zoom-target{
+        position: absolute; border: 2px dashed var(--accent-tag); border-radius: 6px;
+        top: 25%; left: 38%; width: 48%; height: 50%;
+        animation: pulseTarget 1.5s infinite alternate;
+        display: flex; align-items: flex-end; justify-content: flex-end;
+        padding: 5px; font-size: 0.62rem; color: var(--accent-tag);
+    }
+    @keyframes pulseTarget {
+        0% { box-shadow: 0 0 4px rgba(217,164,91,0.3); }.psscan-dev 100%{ box-shadow: 0 0 16px rgba(217,164,91,0.7); }
+    }.psscan-dev .pool-container{ width: 92%; height: 86%; display: flex; flex-direction: column; gap: 10px; position: relative; }.psscan-dev .pool-header-info{
+        display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary);
+        background: var(--card-bg); padding: 7px 12px; border-radius: 4px; border: 1px solid var(--card-border);
+    }.psscan-dev .pool-grid{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; flex-grow: 1; position: relative; }.psscan-dev .pool-block{
+        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 6px;
+        padding: 8px 6px; display: flex; flex-direction: column; justify-content: space-between;
+        font-size: 0.62rem; transition: all 0.3s ease; position: relative; opacity: 0.55;
+    }.psscan-dev .pool-block.scanning{
+        border-color: var(--accent-scan); box-shadow: 0 0 12px rgba(91,143,217,0.35);
+        opacity: 1; transform: scale(1.02); background: rgba(91,143,217,0.08);
+    }.psscan-dev .pool-block.rejected{ opacity: 0.3; border-color: rgba(217,112,95,0.25); }.psscan-dev .pool-block.matched{
+        opacity: 1; border-color: var(--accent-match); background: rgba(111,179,173,0.14);
+        box-shadow: 0 0 20px rgba(111,179,173,0.4); transform: scale(1.05); z-index: 5;
+    }.psscan-dev .tag-badge{
+        font-size: 0.72rem; font-weight: bold; padding: 2px 5px; border-radius: 3px;
+        text-align: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    }.psscan-dev .pool-block.scanning .tag-badge{ color: var(--accent-scan); border-color: var(--accent-scan); }.psscan-dev .pool-block.matched .tag-badge{ color: #0b0e12; background: var(--accent-match); border-color: var(--accent-match); }.psscan-dev .scan-laser{
+        position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+        background: linear-gradient(180deg, transparent, var(--accent-scan), var(--accent-tag), transparent);
+        box-shadow: 0 0 12px var(--accent-scan); z-index: 20; pointer-events: none; opacity: 0;
+        transition: opacity 0.2s ease;
+    }.psscan-dev .validation-layout{ width: 94%; height: 90%; display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; align-items: center; }.psscan-dev .struct-card{
+        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 6px;
+        padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 0.66rem;
+        height: 100%; justify-content: center;
+    }.psscan-dev .struct-card.eprocess-card{ border-color: var(--accent-match); background: rgba(17,22,32,0.95); }.psscan-dev .struct-card-title{
+        font-size: 0.72rem; font-weight: bold; color: var(--accent-tag);
+        border-bottom: 1px solid var(--card-border); padding-bottom: 4px; display: flex; justify-content: space-between;
+    }.psscan-dev .eprocess-card .struct-card-title{ color: var(--accent-match); }.psscan-dev .field-row{ display: flex; justify-content: space-between; padding: 3px 5px; border-radius: 3px; background: rgba(255,255,255,0.015); border: 1px solid transparent; }.psscan-dev .field-row.highlight-tag{ background: var(--tag-bg); border-color: rgba(217,164,91,0.35); color: var(--accent-tag); font-weight: bold; }.psscan-dev .field-row.highlight-proc{ background: var(--highlight-bg); border-color: rgba(111,179,173,0.35); color: var(--accent-match); font-weight: bold; }.psscan-dev .field-row.unlinked-alert{ background: rgba(217,112,95,0.1); border-color: rgba(217,112,95,0.3); color: var(--accent-alert); }.psscan-dev .field-key{ color: var(--text-secondary); }.psscan-dev .highlight-proc .field-key, .psscan-dev .highlight-tag .field-key{ color: inherit; }.psscan-dev .result-banner{
+        position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(16px);
+        background: rgba(111,179,173,0.14); border: 1.5px solid var(--accent-match); color: var(--text-primary);
+        padding: 6px 20px; border-radius: 24px; font-size: 0.74rem; font-weight: bold; letter-spacing: 0.6px;
+        box-shadow: 0 0 24px rgba(111,179,173,0.3); display: flex; align-items: center; gap: 8px;
+        opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 40; white-space: nowrap;
+    }.psscan-dev .result-banner.visible{ opacity: 1; transform: translateX(-50%) translateY(0); }.psscan-dev .result-banner .cmd{ color: var(--accent-match); }.psscan-dev .footer{
+        display: flex; justify-content: space-between; align-items: center;
+        border-top: 1px solid var(--card-border); padding-top: 8px; font-size: 0.68rem; z-index: 10;
+    }.psscan-dev .command-tag{ color: var(--text-secondary); }.psscan-dev .command-tag span{ color: var(--accent-tag); font-weight: bold; }.psscan-dev .controls{ display: flex; gap: 6px; align-items: center; }.psscan-dev button{
+        background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-primary);
+        padding: 4px 11px; border-radius: 4px; font-family: inherit; font-size: 0.66rem; cursor: pointer;
+        transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+    }.psscan-dev button:hover{ border-color: var(--accent-scan); color: var(--accent-scan); }.psscan-dev .timeline-dots{ display: flex; gap: 5px; margin-left: 8px; }.psscan-dev .dot{ width: 6px; height: 6px; border-radius: 50%; background: var(--card-border); transition: all 0.3s ease; }.psscan-dev .dot.active{ background: var(--accent-match); box-shadow: 0 0 6px var(--accent-match); }.psscan-dev svg#overlay-svg{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }.psscan-dev .path-animated{ stroke-dasharray: 400; stroke-dashoffset: 400; animation: drawLine 1s forwards ease-in-out; }
+    @keyframes drawLine { to { stroke-dashoffset: 0; } }
+
+    @media (prefers-reduced-motion: reduce) {
+        .scene { transition: none; }.psscan-dev .zoom-target{ animation: none; }.psscan-dev .path-animated{ animation: none; stroke-dashoffset: 0; }
+    }
+</style><section class="inline-dev psscan-inline">
+<div class="inline-dev-label"><span>LIVE DEV</span> · PSSCAN PROCESS OBJECT DISCOVERY</div>
+<div class="psscan-dev" id="psscanDev">
+
+<div class="container" id="appContainer">
+    <div class="progress-bar-container"><div class="progress-bar" id="progressBar"></div></div>
+
+    <div class="header">
+        <div class="title">PSSCAN — PROCESS OBJECT DISCOVERY</div>
+        <div class="status-badge" id="statusText">PHASE 1: MEMORY IMAGE ANALYSIS</div>
+    </div>
+
+    <div class="stage-area" id="stageArea">
+        <div class="grid-bg"></div>
+        <svg id="overlay-svg"></svg>
+
+        <div class="scene active" id="scene1">
+            <div class="memory-image-box">
+                <div class="memory-title">
+                    <span>PHYSICAL MEMORY DUMP (RAM Image)</span>
+                    <span>Range: 0x00000000 - 0x1F0000000</span>
+                </div>
+                <div class="memory-regions">
+                    <div class="region user-space">
+                        <strong>User Space</strong>
+                        <span style="font-size:0.6rem; color: var(--text-secondary); margin-top:3px;">Processes &amp; DLLs</span>
+                    </div>
+                    <div class="region kernel-pool" id="kernelPoolRegion">
+                        <strong>Kernel Memory Pool</strong>
+                        <span style="font-size:0.6rem; margin-top:3px;">NonPagedPool / PagedPool Allocations</span>
+                        <div class="zoom-target">Zoom Target: Scanner Focus</div>
+                    </div>
+                    <div class="region hardware"><strong>HAL / Page Tables</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scene" id="scene2">
+            <div class="pool-container">
+                <div class="pool-header-info">
+                    <span>KERNEL POOL REGION: 0x85000000 - 0x86000000</span>
+                    <span>TAG SCANNER: Seeking 'Proc' (0x636f7250)</span>
+                </div>
+                <div class="pool-grid" id="poolGrid"></div>
+                <div class="scan-laser" id="scanLaser"></div>
+            </div>
+        </div>
+
+        <div class="scene" id="scene3">
+            <div class="validation-layout">
+                <div class="struct-card" id="poolHeaderCard">
+                    <div class="struct-card-title"><span>_POOL_HEADER</span><span>0x852e1030</span></div>
+                    <div class="field-row"><span class="field-key">PreviousSize</span><span>0x00 (0 bytes)</span></div>
+                    <div class="field-row"><span class="field-key">BlockSize</span><span>0x80 (1024 bytes)</span></div>
+                    <div class="field-row highlight-tag"><span class="field-key">PoolTag</span><span>'Proc' (0x636f7250)</span></div>
+                    <div class="field-row"><span class="field-key">PoolType</span><span>NonPagedPool (0x0)</span></div>
+                    <div class="field-row"><span class="field-key">ProcessBlink</span><span>0x852e1000</span></div>
+                </div>
+                <div class="struct-card eprocess-card" id="eprocessCard">
+                    <div class="struct-card-title"><span>_EPROCESS Object</span><span>Offset +0x00</span></div>
+                    <div class="field-row highlight-proc"><span class="field-key">ImageFileName</span><span>svchost_mal.exe</span></div>
+                    <div class="field-row highlight-proc"><span class="field-key">UniqueProcessId (PID)</span><span>4820</span></div>
+                    <div class="field-row highlight-proc"><span class="field-key">InheritedFromUniqueProcessId</span><span>1480 (explorer.exe)</span></div>
+                    <div class="field-row"><span class="field-key">CreateTime</span><span>2026-09-21 18:42:10 UTC</span></div>
+                    <div class="field-row unlinked-alert"><span class="field-key">ActiveProcessLinks</span><span>[UNLINKED / DKOM ROOTKIT]</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-banner" id="resultBanner">
+            <span>Volatility</span> → <span class="cmd">psscan</span> → <span>Process Object Found!</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="command-tag">VOLATILITY PLUGIN: <span>vol.py -f memory.dmp windows.psscan</span></div>
+        <div class="controls">
+            <button id="btnPause" onclick="togglePause()">⏸ PAUSE</button>
+            <button id="btnReplay" onclick="restartAnimation()">🔄 REPLAY</button>
+            <div class="timeline-dots">
+                <div class="dot active" id="dot1"></div>
+                <div class="dot" id="dot2"></div>
+                <div class="dot" id="dot3"></div>
+                <div class="dot" id="dot4"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const poolData = [
+        { addr: "0x85012000", tag: "Thrd", type: "Thread", match: false },
+        { addr: "0x85054100", tag: "File", type: "FileObject", match: false },
+        { addr: "0x8511a050", tag: "Gdi ", type: "GDI Alloc", match: false },
+        { addr: "0x851e3200", tag: "Port", type: "ALPC Port", match: false },
+        { addr: "0x852e1030", tag: "Proc", type: "_EPROCESS", match: true },
+        { addr: "0x85348120", tag: "Token", type: "TokenObj", match: false },
+        { addr: "0x85490080", tag: "Event", type: "EventObj", match: false },
+        { addr: "0x85501900", tag: "Driver", type: "DriverObj", match: false },
+        { addr: "0x856b3400", tag: "Free", type: "Free Block", match: false },
+        { addr: "0x857ff100", tag: "Key ", type: "CM_KEY_BODY", match: false }
+    ];
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const totalDuration = 8000;
+    let startTime = null;
+    let isPaused = prefersReducedMotion;
+    let animationFrameId = null;
+
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+    const scanLaser = document.getElementById('scanLaser');
+    const resultBanner = document.getElementById('resultBanner');
+    const svgOverlay = document.getElementById('overlay-svg');
+
+    function initPoolGrid() {
+        const grid = document.getElementById('poolGrid');
+        grid.innerHTML = '';
+        poolData.forEach((item, index) => {
+            const block = document.createElement('div');
+            block.className = 'pool-block';
+            block.id = `block-${index}`;
+            block.innerHTML = `
+                <div style="font-size:0.56rem; color:var(--text-secondary);">${item.addr}</div>
+                <div class="tag-badge">'${item.tag}'</div>
+                <div style="font-size:0.56rem; text-align:right;">${item.type}</div>
+            `;
+            grid.appendChild(block);
+        });
+    }
+
+    function setScene(activeSceneId) {
+        document.querySelectorAll('.scene').forEach(scene => scene.classList.remove('active'));
+        document.getElementById(activeSceneId).classList.add('active');
+    }
+
+    function setDot(dotIndex) {
+        for (let i = 1; i <= 4; i++) {
+            const dot = document.getElementById(`dot${i}`);
+            if (i === dotIndex) dot.classList.add('active'); else dot.classList.remove('active');
+        }
+    }
+
+    function drawConnectPath(startEl, endEl) {
+        svgOverlay.innerHTML = '';
+        if (!startEl || !endEl) return;
+        const containerRect = document.getElementById('stageArea').getBoundingClientRect();
+        const r1 = startEl.getBoundingClientRect();
+        const r2 = endEl.getBoundingClientRect();
+        const x1 = r1.left + r1.width / 2 - containerRect.left;
+        const y1 = r1.top + r1.height / 2 - containerRect.top;
+        const x2 = r2.left - containerRect.left;
+        const y2 = r2.top + r2.height / 2 - containerRect.top;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cx1 = x1 + (x2 - x1) * 0.5;
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1}, ${cx1} ${y2}, ${x2} ${y2}`);
+        path.setAttribute('stroke', '#6fb3ad');
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('class', 'path-animated');
+        svgOverlay.appendChild(path);
+    }
+
+    function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+        if (isPaused) { animationFrameId = requestAnimationFrame(animate); return; }
+
+        const elapsed = timestamp - startTime;
+        const progress = Math.min((elapsed / totalDuration) * 100, 100);
+        progressBar.style.width = `${progress}%`;
+
+        if (elapsed < 1800) {
+            setScene('scene1'); setDot(1);
+            statusText.innerText = "PHASE 1: MEMORY IMAGE ANALYSIS & KERNEL POOL LOCATION";
+            resultBanner.classList.remove('visible');
+            svgOverlay.innerHTML = '';
+        } else if (elapsed >= 1800 && elapsed < 4800) {
+            setScene('scene2'); setDot(2);
+            statusText.innerText = "PHASE 2: SCANNING KERNEL ALLOCATIONS FOR POOLTAG 'Proc'";
+            const poolProgress = (elapsed - 1800) / 3000;
+            scanLaser.style.opacity = '1';
+            scanLaser.style.left = `${poolProgress * 98}%`;
+            const currentBlockIdx = Math.floor(poolProgress * poolData.length);
+            poolData.forEach((item, idx) => {
+                const el = document.getElementById(`block-${idx}`);
+                if (!el) return;
+                if (idx < currentBlockIdx) el.className = item.match ? "pool-block matched" : "pool-block rejected";
+                else if (idx === currentBlockIdx) el.className = "pool-block scanning";
+                else el.className = "pool-block";
+            });
+        } else if (elapsed >= 4800 && elapsed < 6800) {
+            setScene('scene3'); setDot(3);
+            scanLaser.style.opacity = '0';
+            statusText.innerText = "PHASE 3: VALIDATING _POOL_HEADER & DISCOVERING _EPROCESS";
+            if (svgOverlay.children.length === 0) {
+                drawConnectPath(document.getElementById('poolHeaderCard'), document.getElementById('eprocessCard'));
+            }
+        } else if (elapsed >= 6800 && elapsed <= totalDuration) {
+            setScene('scene3'); setDot(4);
+            statusText.innerText = "PHASE 4: PROCESS OBJECT VERIFIED (UNLINKED / HIDDEN FOUND)";
+            resultBanner.classList.add('visible');
+        }
+
+        if (elapsed >= totalDuration) { startTime = timestamp; svgOverlay.innerHTML = ''; }
+        animationFrameId = requestAnimationFrame(animate);
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('btnPause');
+        if (isPaused) {
+            btn.innerText = "▶ PLAY"; btn.style.borderColor = "var(--accent-match)"; btn.style.color = "var(--accent-match)";
+        } else {
+            btn.innerText = "⏸ PAUSE"; btn.style.borderColor = "var(--card-border)"; btn.style.color = "var(--text-primary)";
+        }
+    }
+
+    function restartAnimation() {
+        startTime = null;
+        svgOverlay.innerHTML = '';
+        if (isPaused && !prefersReducedMotion) togglePause();
+    }
+
+    window.onload = () => {
+        initPoolGrid();
+        if (prefersReducedMotion) {
+            const btn = document.getElementById('btnPause');
+            btn.innerText = "▶ PLAY"; btn.style.borderColor = "var(--accent-match)"; btn.style.color = "var(--accent-match)";
+        }
+        animationFrameId = requestAnimationFrame(animate);
+    };
+    window.onresize = () => { svgOverlay.innerHTML = ''; };
+</script>
+</div>
+<div class="inline-dev-caption">Interactive dev — the animation shows how <code>windows.psscan</code> scans kernel pool allocations and validates a candidate <code>_EPROCESS</code>.</div>
+</section><script>(function(){const psRoot=document.getElementById('psscanDev');
+    const poolData = [
+        { addr: "0x85012000", tag: "Thrd", type: "Thread", match: false },
+        { addr: "0x85054100", tag: "File", type: "FileObject", match: false },
+        { addr: "0x8511a050", tag: "Gdi ", type: "GDI Alloc", match: false },
+        { addr: "0x851e3200", tag: "Port", type: "ALPC Port", match: false },
+        { addr: "0x852e1030", tag: "Proc", type: "_EPROCESS", match: true },
+        { addr: "0x85348120", tag: "Token", type: "TokenObj", match: false },
+        { addr: "0x85490080", tag: "Event", type: "EventObj", match: false },
+        { addr: "0x85501900", tag: "Driver", type: "DriverObj", match: false },
+        { addr: "0x856b3400", tag: "Free", type: "Free Block", match: false },
+        { addr: "0x857ff100", tag: "Key ", type: "CM_KEY_BODY", match: false }
+    ];
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const totalDuration = 8000;
+    let startTime = null;
+    let isPaused = prefersReducedMotion;
+    let animationFrameId = null;
+
+    const progressBar = root.querySelector('#progressBar');
+    const statusText = root.querySelector('#statusText');
+    const scanLaser = root.querySelector('#scanLaser');
+    const resultBanner = root.querySelector('#resultBanner');
+    const svgOverlay = root.querySelector('#overlay-svg');
+
+    function initPoolGrid() {
+        const grid = root.querySelector('#poolGrid');
+        grid.innerHTML = '';
+        poolData.forEach((item, index) => {
+            const block = document.createElement('div');
+            block.className = 'pool-block';
+            block.id = `block-${index}`;
+            block.innerHTML = `
+                <div style="font-size:0.56rem; color:var(--text-secondary);">${item.addr}</div>
+                <div class="tag-badge">'${item.tag}'</div>
+                <div style="font-size:0.56rem; text-align:right;">${item.type}</div>
+            `;
+            grid.appendChild(block);
+        });
+    }
+
+    function setScene(activeSceneId) {
+        root.querySelectorAll('.scene').forEach(scene => scene.classList.remove('active'));
+        document.getElementById(activeSceneId).classList.add('active');
+    }
+
+    function setDot(dotIndex) {
+        for (let i = 1; i <= 4; i++) {
+            const dot = root.querySelector('#dot${i}');
+            if (i === dotIndex) dot.classList.add('active'); else dot.classList.remove('active');
+        }
+    }
+
+    function drawConnectPath(startEl, endEl) {
+        svgOverlay.innerHTML = '';
+        if (!startEl || !endEl) return;
+        const containerRect = root.querySelector('#stageArea').getBoundingClientRect();
+        const r1 = startEl.getBoundingClientRect();
+        const r2 = endEl.getBoundingClientRect();
+        const x1 = r1.left + r1.width / 2 - containerRect.left;
+        const y1 = r1.top + r1.height / 2 - containerRect.top;
+        const x2 = r2.left - containerRect.left;
+        const y2 = r2.top + r2.height / 2 - containerRect.top;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cx1 = x1 + (x2 - x1) * 0.5;
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1}, ${cx1} ${y2}, ${x2} ${y2}`);
+        path.setAttribute('stroke', '#6fb3ad');
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('class', 'path-animated');
+        svgOverlay.appendChild(path);
+    }
+
+    function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+        if (isPaused) { animationFrameId = requestAnimationFrame(animate); return; }
+
+        const elapsed = timestamp - startTime;
+        const progress = Math.min((elapsed / totalDuration) * 100, 100);
+        progressBar.style.width = `${progress}%`;
+
+        if (elapsed < 1800) {
+            setScene('scene1'); setDot(1);
+            statusText.innerText = "PHASE 1: MEMORY IMAGE ANALYSIS & KERNEL POOL LOCATION";
+            resultBanner.classList.remove('visible');
+            svgOverlay.innerHTML = '';
+        } else if (elapsed >= 1800 && elapsed < 4800) {
+            setScene('scene2'); setDot(2);
+            statusText.innerText = "PHASE 2: SCANNING KERNEL ALLOCATIONS FOR POOLTAG 'Proc'";
+            const poolProgress = (elapsed - 1800) / 3000;
+            scanLaser.style.opacity = '1';
+            scanLaser.style.left = `${poolProgress * 98}%`;
+            const currentBlockIdx = Math.floor(poolProgress * poolData.length);
+            poolData.forEach((item, idx) => {
+                const el = root.querySelector('#block-${idx}');
+                if (!el) return;
+                if (idx < currentBlockIdx) el.className = item.match ? "pool-block matched" : "pool-block rejected";
+                else if (idx === currentBlockIdx) el.className = "pool-block scanning";
+                else el.className = "pool-block";
+            });
+        } else if (elapsed >= 4800 && elapsed < 6800) {
+            setScene('scene3'); setDot(3);
+            scanLaser.style.opacity = '0';
+            statusText.innerText = "PHASE 3: VALIDATING _POOL_HEADER & DISCOVERING _EPROCESS";
+            if (svgOverlay.children.length === 0) {
+                drawConnectPath(root.querySelector('#poolHeaderCard'), root.querySelector('#eprocessCard'));
+            }
+        } else if (elapsed >= 6800 && elapsed <= totalDuration) {
+            setScene('scene3'); setDot(4);
+            statusText.innerText = "PHASE 4: PROCESS OBJECT VERIFIED (UNLINKED / HIDDEN FOUND)";
+            resultBanner.classList.add('visible');
+        }
+
+        if (elapsed >= totalDuration) { startTime = timestamp; svgOverlay.innerHTML = ''; }
+        animationFrameId = requestAnimationFrame(animate);
+    }
+
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = root.querySelector('#btnPause');
+        if (isPaused) {
+            btn.innerText = "▶ PLAY"; btn.style.borderColor = "var(--accent-match)"; btn.style.color = "var(--accent-match)";
+        } else {
+            btn.innerText = "⏸ PAUSE"; btn.style.borderColor = "var(--card-border)"; btn.style.color = "var(--text-primary)";
+        }
+    }
+
+    function restartAnimation() {
+        startTime = null;
+        svgOverlay.innerHTML = '';
+        if (isPaused && !prefersReducedMotion) togglePause();
+    }
+
+    
+        initPoolGrid();
+        if (prefersReducedMotion) {
+            const btn = root.querySelector('#btnPause');
+            btn.innerText = "▶ PLAY"; btn.style.borderColor = "var(--accent-match)"; btn.style.color = "var(--accent-match)";
+        }
+        animationFrameId = requestAnimationFrame(animate);
+    window.addEventListener('resize', () => { svgOverlay.innerHTML = ''; });
+})();</script>
 
     <h2 id="s05"><span class="num">05</span>Why can psscan find more processes?</h2>
     <p>Suppose <code>pslist</code> returns <code>System</code>, <code>explorer.exe</code>, <code>svchost.exe</code> — but <code>psscan</code> also returns a fourth entry, <code>suspicious.exe</code>. At first glance that looks like hidden malware. It isn't automatically that. Three explanations are common:</p>
@@ -363,35 +1237,6 @@ but is no longer linked into the active process list.</pre>
 
 <footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
 
-<script>
-(function(){
-  const EP_STYLE="\n  :root {\n    --bg-color: #0b0e12;\n    --card-bg: #111620;\n    --card-border: rgba(233,228,212,0.14);\n    --text-primary: #e9e4d4;\n    --text-secondary: #7c848c;\n    --accent-core: #6fb3ad;\n    --accent-tag: #d9a45b;\n    --accent-ptr: #5b8fd9;\n    --accent-alert: #d9705f;\n    --accent-embed: #8f8ad0;\n  }\n  * { box-sizing: border-box; margin: 0; padding: 0; }\n  html, body {\n    height: 100%;\n    background: var(--bg-color);\n    color: var(--text-primary);\n    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;\n  }\n  body {\n    padding: 20px 18px 22px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    gap: 16px;\n    min-height: 100%;\n  }\n  .page { width: 100%; max-width: 1180px; }\n  header {\n    display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px;\n    border-bottom: 1px solid var(--card-border); padding-bottom: 12px;\n  }\n  h1 {\n    font-size: 1.1rem; letter-spacing: 0.4px; display: flex; align-items: center; gap: 9px;\n  }\n  h1::before {\n    content: ''; width: 8px; height: 8px; border-radius: 50%;\n    background: var(--accent-core); box-shadow: 0 0 9px var(--accent-core); flex-shrink: 0;\n  }\n  .subtitle { color: var(--text-secondary); font-size: 0.74rem; }\n  .map {\n    position: relative; display: grid;\n    grid-template-columns: 1fr 1.15fr 1fr; grid-template-rows: auto auto auto;\n    gap: 20px 36px; align-items: center;\n  }\n  svg#links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }\n  .node {\n    position: relative; z-index: 2; background: var(--card-bg); border: 1px solid var(--card-border);\n    border-radius: 7px; padding: 11px 13px; font-size: 0.68rem; box-shadow: 0 4px 16px rgba(0,0,0,0.35);\n  }\n  .node-title {\n    font-size: 0.72rem; font-weight: bold; display: flex; justify-content: space-between; align-items: baseline;\n    border-bottom: 1px solid var(--card-border); padding-bottom: 5px; margin-bottom: 7px;\n  }\n  .node-title .badge { font-size: 0.58rem; font-weight: normal; color: var(--text-secondary); }\n  .row { display: flex; justify-content: space-between; gap: 9px; padding: 2px 0; }\n  .row .k { color: var(--text-secondary); }\n  .row .v { text-align: right; }\n  .note { color: var(--text-secondary); font-size: 0.6rem; margin-top: 7px; line-height: 1.5; }\n\n  .eprocess {\n    grid-column: 2; grid-row: 2; border-color: var(--accent-core);\n    box-shadow: 0 0 26px rgba(111,179,173,0.16); background: rgba(17,22,32,0.97);\n    width: 100%; max-width: 380px; justify-self: center;\n  }\n  .eprocess .node-title { color: var(--accent-core); }\n  .row.ptr .v { color: var(--accent-ptr); }\n  .row.embedded .v { color: var(--accent-embed); }\n\n  .peb        { grid-column: 1; grid-row: 1; }\n  .handletable{ grid-column: 3; grid-row: 1; }\n  .token      { grid-column: 1; grid-row: 2; }\n  .vad        { grid-column: 3; grid-row: 2; }\n  .links-list { grid-column: 1; grid-row: 3; }\n  .threads    { grid-column: 3; grid-row: 3; }\n\n  .satellite .node-title { color: var(--accent-tag); }\n  .satellite.peb .node-title { color: var(--accent-ptr); }\n  .satellite.links-list .node-title { color: var(--accent-alert); }\n\n  .satellite { cursor: pointer; transition: border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease; }\n  .satellite:hover { border-color: var(--accent-ptr); }\n  .satellite.active { border-color: var(--accent-ptr); box-shadow: 0 0 22px rgba(91,143,217,0.3); }\n  .satellite.links-list.active { border-color: var(--accent-alert); box-shadow: 0 0 22px rgba(217,112,95,0.3); }\n  .map.has-selection .satellite:not(.active) { opacity: 0.4; }\n\n  .row.ptr { cursor: pointer; border-radius: 4px; transition: background 0.2s ease, color 0.2s ease; }\n  .row.ptr:hover { background: rgba(91,143,217,0.08); }\n  .row.ptr.active { background: rgba(91,143,217,0.14); }\n  .row.ptr.active .k { color: var(--text-primary); }\n  .row.ptr[data-target=\"links-list\"].active { background: rgba(217,112,95,0.12); }\n\n  .detail-panel {\n    border: 1px solid var(--card-border); border-radius: 7px; background: var(--card-bg);\n    padding: 11px 15px; font-size: 0.68rem; color: var(--text-secondary); line-height: 1.6;\n    min-height: 18px; transition: border-color 0.25s ease;\n  }\n  .detail-panel.active { border-color: var(--accent-ptr); color: var(--text-primary); }\n  .detail-panel .dp-title { font-weight: bold; color: var(--accent-ptr); margin-bottom: 4px; display: none; }\n  .detail-panel.active .dp-title { display: block; }\n\n  .flag-row {\n    background: rgba(217,112,95,0.08); border: 1px solid rgba(217,112,95,0.25); border-radius: 6px;\n    padding: 7px 9px; font-size: 0.6rem; color: var(--accent-alert); margin-top: 7px;\n  }\n\n  .legend {\n    display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.63rem; color: var(--text-secondary);\n    border-top: 1px solid var(--card-border); padding-top: 11px; margin-top: 6px;\n  }\n  .legend .item { display: flex; align-items: center; gap: 6px; }\n  .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }\n\n  @media (max-width: 820px) {\n    .map { grid-template-columns: 1fr; grid-template-rows: none; }\n    .eprocess, .peb, .handletable, .token, .vad, .links-list, .threads {\n      grid-column: 1; grid-row: auto; max-width: 100%;\n    }\n    svg#links { display: none; }\n  }\n";
-  const EP_BODY="\n<div class=\"page\">\n  <header>\n    <h1>_EPROCESS STRUCTURE MAP</h1>\n    <div class=\"subtitle\">Windows kernel process object — undocumented structure, exact offsets vary by build (inspect with <span style=\"color:var(--accent-tag)\">WinDbg: dt nt!_EPROCESS</span> or Volatility's symbol table)</div>\n  </header>\n\n  <div class=\"map\" id=\"map\">\n    <svg id=\"links\"></svg>\n\n    <div class=\"node satellite peb\" id=\"peb\">\n      <div class=\"node-title\">_PEB <span class=\"badge\">Process Environment Block</span></div>\n      <div class=\"row\"><span class=\"k\">ImageBaseAddress</span><span class=\"v\">0x00400000</span></div>\n      <div class=\"row\"><span class=\"k\">Ldr</span><span class=\"v\">_PEB_LDR_DATA*</span></div>\n      <div class=\"row\"><span class=\"k\">ProcessParameters</span><span class=\"v\">cmdline, env</span></div>\n      <div class=\"note\">Lives in user-space, not the kernel pool — only reliably readable while a thread is executing in this process's context.</div>\n    </div>\n\n    <div class=\"node satellite handletable\" id=\"handletable\">\n      <div class=\"node-title\">_HANDLE_TABLE <span class=\"badge\">ObjectTable</span></div>\n      <div class=\"row\"><span class=\"k\">HandleCount</span><span class=\"v\">142</span></div>\n      <div class=\"row\"><span class=\"k\">TableCode</span><span class=\"v\">handle → object</span></div>\n      <div class=\"note\">Every open handle (file, registry key, mutex, another process) resolves through here — a key artifact for reconstructing what a process touched.</div>\n    </div>\n\n    <div class=\"node satellite token\" id=\"token\">\n      <div class=\"node-title\">_TOKEN <span class=\"badge\">via EX_FAST_REF</span></div>\n      <div class=\"row\"><span class=\"k\">UserSid</span><span class=\"v\">S-1-5-21-...</span></div>\n      <div class=\"row\"><span class=\"k\">Privileges</span><span class=\"v\">SeDebugPrivilege...</span></div>\n      <div class=\"row\"><span class=\"k\">IntegrityLevel</span><span class=\"v\">Medium / High / System</span></div>\n      <div class=\"note\">Security context the process runs under — privilege escalation and token theft both show up here.</div>\n    </div>\n\n    <div class=\"node satellite vad\" id=\"vad\">\n      <div class=\"node-title\">VAD TREE <span class=\"badge\">VadRoot</span></div>\n      <div class=\"row\"><span class=\"k\">Structure</span><span class=\"v\">self-balancing AVL tree</span></div>\n      <div class=\"row\"><span class=\"k\">Leaves</span><span class=\"v\">mapped regions, DLLs, heaps</span></div>\n      <div class=\"note\">Walking this tree reveals injected code, unbacked executable memory, and reflectively-loaded modules.</div>\n    </div>\n\n    <div class=\"node satellite links-list\" id=\"links-list\">\n      <div class=\"node-title\">ActiveProcessLinks <span class=\"badge\">LIST_ENTRY</span></div>\n      <div class=\"row\"><span class=\"k\">Flink</span><span class=\"v\">→ next _EPROCESS</span></div>\n      <div class=\"row\"><span class=\"k\">Blink</span><span class=\"v\">→ prev _EPROCESS</span></div>\n      <div class=\"flag-row\">A rootkit that unlinks itself here disappears from PsActiveProcessHead-walking tools (tasklist, pslist) — but its pool allocation is still there for <span style=\"color:var(--accent-core)\">psscan</span> to find.</div>\n    </div>\n\n    <div class=\"node satellite threads\" id=\"threads\">\n      <div class=\"node-title\">ThreadListHead <span class=\"badge\">→ _ETHREAD list</span></div>\n      <div class=\"row\"><span class=\"k\">Each entry</span><span class=\"v\">_ETHREAD</span></div>\n      <div class=\"row\"><span class=\"k\">Contains</span><span class=\"v\">start address, TEB, stack</span></div>\n      <div class=\"note\">Thread start addresses are another injection tell: a thread starting outside any mapped module is suspicious.</div>\n    </div>\n\n    <div class=\"node eprocess\" id=\"eprocess\">\n      <div class=\"node-title\">_EPROCESS <span class=\"badge\">offset +0x00</span></div>\n      <div class=\"row embedded\"><span class=\"k\">Pcb</span><span class=\"v\">_KPROCESS (embedded)</span></div>\n      <div class=\"row\"><span class=\"k\">UniqueProcessId</span><span class=\"v\">4820</span></div>\n      <div class=\"row\"><span class=\"k\">ImageFileName</span><span class=\"v\">svchost_mal.exe</span></div>\n      <div class=\"row\"><span class=\"k\">InheritedFromUniqueProcessId</span><span class=\"v\">1480</span></div>\n      <div class=\"row ptr\" data-target=\"links-list\"><span class=\"k\">ActiveProcessLinks</span><span class=\"v\">LIST_ENTRY →</span></div>\n      <div class=\"row ptr\" data-target=\"peb\"><span class=\"k\">Peb</span><span class=\"v\">_PEB* →</span></div>\n      <div class=\"row ptr\" data-target=\"handletable\"><span class=\"k\">ObjectTable</span><span class=\"v\">_HANDLE_TABLE* →</span></div>\n      <div class=\"row ptr\" data-target=\"token\"><span class=\"k\">Token</span><span class=\"v\">_TOKEN* →</span></div>\n      <div class=\"row ptr\" data-target=\"vad\"><span class=\"k\">VadRoot</span><span class=\"v\">_MMVAD* →</span></div>\n      <div class=\"row ptr\" data-target=\"threads\"><span class=\"k\">ThreadListHead</span><span class=\"v\">LIST_ENTRY →</span></div>\n    </div>\n  </div>\n\n  <div class=\"detail-panel\" id=\"detailPanel\">\n    <div class=\"dp-title\" id=\"dpTitle\"></div>\n    <div id=\"dpBody\">Click a pointer field on <span style=\"color:var(--accent-core)\">_EPROCESS</span>, or one of the linked structures, to trace the relationship.</div>\n  </div>\n\n  <div class=\"legend\">\n    <div class=\"item\"><span class=\"swatch\" style=\"background:var(--accent-core)\"></span> _EPROCESS core fields</div>\n    <div class=\"item\"><span class=\"swatch\" style=\"background:var(--accent-ptr)\"></span> pointer field (leads to satellite structure)</div>\n    <div class=\"item\"><span class=\"swatch\" style=\"background:var(--accent-embed)\"></span> embedded structure (not a pointer)</div>\n    <div class=\"item\"><span class=\"swatch\" style=\"background:var(--accent-alert)\"></span> linked-list field abused by DKOM</div>\n  </div>\n</div>\n\n<script>\n  const svg = document.getElementById('links');\n  const mapEl = document.getElementById('map');\n  const center = document.getElementById('eprocess');\n  const satellites = ['peb','handletable','token','vad','links-list','threads'];\n  const detailPanel = document.getElementById('detailPanel');\n  const dpTitle = document.getElementById('dpTitle');\n  const dpBody = document.getElementById('dpBody');\n\n  const details = {\n    peb: {\n      title: '_EPROCESS.Peb → _PEB',\n      body: 'A pointer into the process\\'s own user-mode address space. It only resolves correctly while a thread from this process is the one executing — reading it from an arbitrary kernel context can return garbage, which is why memory analysis tools cross-check it against the process\\'s page directory (DirectoryTableBase) first.'\n    },\n    handletable: {\n      title: '_EPROCESS.ObjectTable → _HANDLE_TABLE',\n      body: 'A pointer to the table mapping every open handle in the process to the kernel object it refers to. Enumerating it reconstructs what files, registry keys, mutexes, pipes, or other processes this process had open at capture time — often the clearest evidence of what it was doing.'\n    },\n    token: {\n      title: '_EPROCESS.Token → _TOKEN',\n      body: 'A packed pointer (EX_FAST_REF, low bits used as a reference count) to the security token defining the process\\'s identity and privileges. Token theft — copying a SYSTEM token\\'s pointer into a lower-privileged process — is a classic privilege-escalation technique that shows up as a mismatched Token address here.'\n    },\n    vad: {\n      title: '_EPROCESS.VadRoot → VAD tree',\n      body: 'Root of a self-balancing tree of Virtual Address Descriptors, one per mapped memory region. Walking it lists every mapped module, heap, and stack — and any region marked executable with no backing file on disk is a strong indicator of code injection or reflective loading.'\n    },\n    'links-list': {\n      title: '_EPROCESS.ActiveProcessLinks',\n      body: 'A LIST_ENTRY (Flink/Blink pair) threading every running _EPROCESS into one doubly linked list, rooted at PsActiveProcessHead. Tools like tasklist and pslist simply walk this list — so a rootkit that unlinks its own entry (DKOM) vanishes from them instantly. The pool allocation itself is untouched, which is exactly what psscan exploits: it scans raw kernel pool for the \\'Proc\\' tag instead of walking the list.'\n    },\n    threads: {\n      title: '_EPROCESS.ThreadListHead → _ETHREAD list',\n      body: 'Head of the list of _ETHREAD structures belonging to this process. Each thread record includes its start address and TEB — a thread whose start address doesn\\'t land inside any module listed in the VAD tree is a common signature of shellcode running via process injection.'\n    }\n  };\n\n  function setSelection(id) {\n    const isSame = mapEl.dataset.selected === id;\n    const target = isSame ? null : id;\n    mapEl.dataset.selected = target || '';\n    mapEl.classList.toggle('has-selection', !!target);\n\n    satellites.forEach(sid => {\n      document.getElementById(sid).classList.toggle('active', sid === target);\n    });\n    document.querySelectorAll('.row.ptr').forEach(row => {\n      row.classList.toggle('active', row.dataset.target === target);\n    });\n\n    if (target) {\n      detailPanel.classList.add('active');\n      dpTitle.textContent = details[target].title;\n      dpBody.textContent = details[target].body;\n    } else {\n      detailPanel.classList.remove('active');\n      dpTitle.textContent = '';\n      dpBody.innerHTML = 'Click a pointer field on <span style=\"color:var(--accent-core)\">_EPROCESS</span>, or one of the linked structures, to trace the relationship.';\n    }\n    drawLinks();\n  }\n\n  satellites.forEach(id => {\n    document.getElementById(id).addEventListener('click', () => setSelection(id));\n  });\n  document.querySelectorAll('.row.ptr').forEach(row => {\n    row.addEventListener('click', () => setSelection(row.dataset.target));\n  });\n\n  function drawLinks() {\n    if (window.innerWidth <= 820) { svg.innerHTML = ''; return; }\n    const rect = mapEl.getBoundingClientRect();\n    const c = center.getBoundingClientRect();\n    const selected = mapEl.dataset.selected || null;\n    svg.innerHTML = '';\n    svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);\n\n    satellites.forEach(id => {\n      const el = document.getElementById(id);\n      const r = el.getBoundingClientRect();\n      const cx = c.left + c.width/2 - rect.left;\n      const cy = c.top + c.height/2 - rect.top;\n      const isLeft = r.left < c.left;\n      const sx = (isLeft ? r.right : r.left) - rect.left;\n      const sy = r.top + r.height/2 - rect.top;\n\n      const isActive = id === selected;\n      const isDimmed = selected && !isActive;\n\n      const path = document.createElementNS('http://www.w3.org/2000/svg','path');\n      const midX = (sx + cx) / 2;\n      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${cy}, ${cx} ${cy}`;\n      path.setAttribute('d', d);\n      path.setAttribute('stroke', isActive ? (id === 'links-list' ? '#d9705f' : '#5b8fd9') : (id === 'links-list' ? '#d9705f' : '#2a3340'));\n      path.setAttribute('stroke-width', isActive ? '2.5' : '1.5');\n      path.setAttribute('fill', 'none');\n      path.setAttribute('opacity', isDimmed ? '0.15' : (isActive ? '1' : '0.7'));\n      if (isActive) {\n        path.style.filter = id === 'links-list'\n          ? 'drop-shadow(0 0 4px rgba(217,112,95,0.6))'\n          : 'drop-shadow(0 0 4px rgba(91,143,217,0.6))';\n      }\n      svg.appendChild(path);\n    });\n  }\n\n  window.addEventListener('load', drawLinks);\n  window.addEventListener('resize', drawLinks);\n</script>\n";
-  const EP_SCRIPT="\n  const svg = root.querySelector('#links');\n  const mapEl = root.querySelector('#map');\n  const center = root.querySelector('#eprocess');\n  const satellites = ['peb','handletable','token','vad','links-list','threads'];\n  const detailPanel = root.querySelector('#detailPanel');\n  const dpTitle = root.querySelector('#dpTitle');\n  const dpBody = root.querySelector('#dpBody');\n\n  const details = {\n    peb: {\n      title: '_EPROCESS.Peb → _PEB',\n      body: 'A pointer into the process\\'s own user-mode address space. It only resolves correctly while a thread from this process is the one executing — reading it from an arbitrary kernel context can return garbage, which is why memory analysis tools cross-check it against the process\\'s page directory (DirectoryTableBase) first.'\n    },\n    handletable: {\n      title: '_EPROCESS.ObjectTable → _HANDLE_TABLE',\n      body: 'A pointer to the table mapping every open handle in the process to the kernel object it refers to. Enumerating it reconstructs what files, registry keys, mutexes, pipes, or other processes this process had open at capture time — often the clearest evidence of what it was doing.'\n    },\n    token: {\n      title: '_EPROCESS.Token → _TOKEN',\n      body: 'A packed pointer (EX_FAST_REF, low bits used as a reference count) to the security token defining the process\\'s identity and privileges. Token theft — copying a SYSTEM token\\'s pointer into a lower-privileged process — is a classic privilege-escalation technique that shows up as a mismatched Token address here.'\n    },\n    vad: {\n      title: '_EPROCESS.VadRoot → VAD tree',\n      body: 'Root of a self-balancing tree of Virtual Address Descriptors, one per mapped memory region. Walking it lists every mapped module, heap, and stack — and any region marked executable with no backing file on disk is a strong indicator of code injection or reflective loading.'\n    },\n    'links-list': {\n      title: '_EPROCESS.ActiveProcessLinks',\n      body: 'A LIST_ENTRY (Flink/Blink pair) threading every running _EPROCESS into one doubly linked list, rooted at PsActiveProcessHead. Tools like tasklist and pslist simply walk this list — so a rootkit that unlinks its own entry (DKOM) vanishes from them instantly. The pool allocation itself is untouched, which is exactly what psscan exploits: it scans raw kernel pool for the \\'Proc\\' tag instead of walking the list.'\n    },\n    threads: {\n      title: '_EPROCESS.ThreadListHead → _ETHREAD list',\n      body: 'Head of the list of _ETHREAD structures belonging to this process. Each thread record includes its start address and TEB — a thread whose start address doesn\\'t land inside any module listed in the VAD tree is a common signature of shellcode running via process injection.'\n    }\n  };\n\n  function setSelection(id) {\n    const isSame = mapEl.dataset.selected === id;\n    const target = isSame ? null : id;\n    mapEl.dataset.selected = target || '';\n    mapEl.classList.toggle('has-selection', !!target);\n\n    satellites.forEach(sid => {\n      document.getElementById(sid).classList.toggle('active', sid === target);\n    });\n    root.querySelectorAll('.row.ptr').forEach(row => {\n      row.classList.toggle('active', row.dataset.target === target);\n    });\n\n    if (target) {\n      detailPanel.classList.add('active');\n      dpTitle.textContent = details[target].title;\n      dpBody.textContent = details[target].body;\n    } else {\n      detailPanel.classList.remove('active');\n      dpTitle.textContent = '';\n      dpBody.innerHTML = 'Click a pointer field on <span style=\"color:var(--accent-core)\">_EPROCESS</span>, or one of the linked structures, to trace the relationship.';\n    }\n    drawLinks();\n  }\n\n  satellites.forEach(id => {\n    document.getElementById(id).addEventListener('click', () => setSelection(id));\n  });\n  root.querySelectorAll('.row.ptr').forEach(row => {\n    row.addEventListener('click', () => setSelection(row.dataset.target));\n  });\n\n  function drawLinks() {\n    if (window.innerWidth <= 820) { svg.innerHTML = ''; return; }\n    const rect = mapEl.getBoundingClientRect();\n    const c = center.getBoundingClientRect();\n    const selected = mapEl.dataset.selected || null;\n    svg.innerHTML = '';\n    svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);\n\n    satellites.forEach(id => {\n      const el = document.getElementById(id);\n      const r = el.getBoundingClientRect();\n      const cx = c.left + c.width/2 - rect.left;\n      const cy = c.top + c.height/2 - rect.top;\n      const isLeft = r.left < c.left;\n      const sx = (isLeft ? r.right : r.left) - rect.left;\n      const sy = r.top + r.height/2 - rect.top;\n\n      const isActive = id === selected;\n      const isDimmed = selected && !isActive;\n\n      const path = document.createElementNS('http://www.w3.org/2000/svg','path');\n      const midX = (sx + cx) / 2;\n      const d = `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${cy}, ${cx} ${cy}`;\n      path.setAttribute('d', d);\n      path.setAttribute('stroke', isActive ? (id === 'links-list' ? '#d9705f' : '#5b8fd9') : (id === 'links-list' ? '#d9705f' : '#2a3340'));\n      path.setAttribute('stroke-width', isActive ? '2.5' : '1.5');\n      path.setAttribute('fill', 'none');\n      path.setAttribute('opacity', isDimmed ? '0.15' : (isActive ? '1' : '0.7'));\n      if (isActive) {\n        path.style.filter = id === 'links-list'\n          ? 'drop-shadow(0 0 4px rgba(217,112,95,0.6))'\n          : 'drop-shadow(0 0 4px rgba(91,143,217,0.6))';\n      }\n      svg.appendChild(path);\n    });\n  }\n\n  setTimeout(drawLinks, 0);\n  window.addEventListener('resize', drawLinks);\n";
-  const PS_STYLE="\n    :root {\n        --bg-color: #0b0e12;\n        --card-bg: #111620;\n        --card-border: rgba(233,228,212,0.14);\n        --text-primary: #e9e4d4;\n        --text-secondary: #7c848c;\n        --accent-scan: #5b8fd9;\n        --accent-match: #6fb3ad;\n        --accent-tag: #d9a45b;\n        --accent-alert: #d9705f;\n        --highlight-bg: rgba(111, 179, 173, 0.14);\n        --tag-bg: rgba(217, 164, 91, 0.14);\n        --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;\n    }\n    * { box-sizing: border-box; margin: 0; padding: 0; }\n    html, body { width: 100%; height: 100%; }\n    body {\n        background-color: var(--bg-color);\n        color: var(--text-primary);\n        font-family: var(--mono);\n        display: flex;\n        justify-content: center;\n        align-items: center;\n    }\n    .container {\n        width: 100%;\n        height: 100%;\n        background-color: var(--bg-color);\n        border: 1px solid var(--card-border);\n        position: relative;\n        padding: 16px 20px;\n        display: flex;\n        flex-direction: column;\n        justify-content: space-between;\n        border-radius: 6px;\n        overflow: hidden;\n    }\n    .progress-bar-container {\n        position: absolute; top: 0; left: 0; width: 100%; height: 3px;\n        background: rgba(233,228,212,0.08); z-index: 50;\n    }\n    .progress-bar {\n        height: 100%; width: 0%;\n        background: linear-gradient(90deg, var(--accent-scan), var(--accent-tag), var(--accent-match));\n        transition: width 0.1s linear;\n    }\n    .header {\n        display: flex; justify-content: space-between; align-items: center;\n        border-bottom: 1px solid var(--card-border); padding-bottom: 8px; z-index: 10;\n    }\n    .title {\n        font-size: 0.82rem; color: var(--text-primary); letter-spacing: 1.2px;\n        display: flex; align-items: center; gap: 9px; font-weight: 700;\n    }\n    .title::before {\n        content: ''; display: inline-block; width: 7px; height: 7px;\n        background-color: var(--accent-tag); border-radius: 50%;\n        box-shadow: 0 0 8px var(--accent-tag);\n    }\n    .status-badge {\n        font-size: 0.68rem; color: var(--accent-scan);\n        background: rgba(91, 143, 217, 0.1); padding: 3px 10px; border-radius: 4px;\n        border: 1px solid rgba(91, 143, 217, 0.3); letter-spacing: 0.4px;\n        transition: all 0.3s ease; font-weight: 600;\n    }\n    .stage-area {\n        position: relative; flex-grow: 1; margin: 10px 0;\n        border: 1px dashed var(--card-border); border-radius: 5px;\n        background: radial-gradient(circle at center, rgba(17,22,32,0.6) 0%, rgba(11,14,18,0.95) 100%);\n        overflow: hidden; display: flex; justify-content: center; align-items: center;\n    }\n    .grid-bg {\n        position: absolute; top: 0; left: 0; width: 100%; height: 100%;\n        background-image:\n            linear-gradient(to right, rgba(233,228,212,0.05) 1px, transparent 1px),\n            linear-gradient(to bottom, rgba(233,228,212,0.05) 1px, transparent 1px);\n        background-size: 22px 22px; pointer-events: none;\n    }\n    .scene {\n        position: absolute; width: 100%; height: 100%;\n        display: flex; justify-content: center; align-items: center;\n        opacity: 0; transition: opacity 0.5s ease; pointer-events: none; padding: 12px;\n    }\n    .scene.active { opacity: 1; pointer-events: auto; }\n    .memory-image-box {\n        width: 84%; height: 78%; background: rgba(17,22,32,0.9);\n        border: 2px solid var(--accent-scan); border-radius: 8px;\n        box-shadow: 0 0 26px rgba(91,143,217,0.14);\n        display: flex; flex-direction: column; padding: 14px; gap: 10px; position: relative;\n    }\n    .memory-title {\n        font-size: 0.78rem; color: var(--accent-scan); font-weight: bold;\n        display: flex; justify-content: space-between; border-bottom: 1px solid rgba(91,143,217,0.25);\n        padding-bottom: 5px;\n    }\n    .memory-regions { display: flex; flex-grow: 1; gap: 10px; }\n    .region {\n        border: 1px solid var(--card-border); border-radius: 4px; padding: 8px;\n        display: flex; flex-direction: column; justify-content: center; align-items: center;\n        font-size: 0.68rem; color: var(--text-secondary); background: rgba(255,255,255,0.015);\n        transition: all 0.4s ease;\n    }\n    .region.user-space { flex: 2; }\n    .region.kernel-pool {\n        flex: 3; border-color: var(--accent-tag); background: rgba(217,164,91,0.05);\n        color: var(--accent-tag); position: relative; box-shadow: 0 0 16px rgba(217,164,91,0.08);\n    }\n    .region.hardware { flex: 1; }\n    .zoom-target {\n        position: absolute; border: 2px dashed var(--accent-tag); border-radius: 6px;\n        top: 25%; left: 38%; width: 48%; height: 50%;\n        animation: pulseTarget 1.5s infinite alternate;\n        display: flex; align-items: flex-end; justify-content: flex-end;\n        padding: 5px; font-size: 0.62rem; color: var(--accent-tag);\n    }\n    @keyframes pulseTarget {\n        0% { box-shadow: 0 0 4px rgba(217,164,91,0.3); }\n        100% { box-shadow: 0 0 16px rgba(217,164,91,0.7); }\n    }\n    .pool-container { width: 92%; height: 86%; display: flex; flex-direction: column; gap: 10px; position: relative; }\n    .pool-header-info {\n        display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary);\n        background: var(--card-bg); padding: 7px 12px; border-radius: 4px; border: 1px solid var(--card-border);\n    }\n    .pool-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; flex-grow: 1; position: relative; }\n    .pool-block {\n        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 6px;\n        padding: 8px 6px; display: flex; flex-direction: column; justify-content: space-between;\n        font-size: 0.62rem; transition: all 0.3s ease; position: relative; opacity: 0.55;\n    }\n    .pool-block.scanning {\n        border-color: var(--accent-scan); box-shadow: 0 0 12px rgba(91,143,217,0.35);\n        opacity: 1; transform: scale(1.02); background: rgba(91,143,217,0.08);\n    }\n    .pool-block.rejected { opacity: 0.3; border-color: rgba(217,112,95,0.25); }\n    .pool-block.matched {\n        opacity: 1; border-color: var(--accent-match); background: rgba(111,179,173,0.14);\n        box-shadow: 0 0 20px rgba(111,179,173,0.4); transform: scale(1.05); z-index: 5;\n    }\n    .tag-badge {\n        font-size: 0.72rem; font-weight: bold; padding: 2px 5px; border-radius: 3px;\n        text-align: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);\n    }\n    .pool-block.scanning .tag-badge { color: var(--accent-scan); border-color: var(--accent-scan); }\n    .pool-block.matched .tag-badge { color: #0b0e12; background: var(--accent-match); border-color: var(--accent-match); }\n    .scan-laser {\n        position: absolute; top: 0; left: 0; width: 3px; height: 100%;\n        background: linear-gradient(180deg, transparent, var(--accent-scan), var(--accent-tag), transparent);\n        box-shadow: 0 0 12px var(--accent-scan); z-index: 20; pointer-events: none; opacity: 0;\n        transition: opacity 0.2s ease;\n    }\n    .validation-layout { width: 94%; height: 90%; display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px; align-items: center; }\n    .struct-card {\n        background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 6px;\n        padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 0.66rem;\n        height: 100%; justify-content: center;\n    }\n    .struct-card.eprocess-card { border-color: var(--accent-match); background: rgba(17,22,32,0.95); }\n    .struct-card-title {\n        font-size: 0.72rem; font-weight: bold; color: var(--accent-tag);\n        border-bottom: 1px solid var(--card-border); padding-bottom: 4px; display: flex; justify-content: space-between;\n    }\n    .eprocess-card .struct-card-title { color: var(--accent-match); }\n    .field-row { display: flex; justify-content: space-between; padding: 3px 5px; border-radius: 3px; background: rgba(255,255,255,0.015); border: 1px solid transparent; }\n    .field-row.highlight-tag { background: var(--tag-bg); border-color: rgba(217,164,91,0.35); color: var(--accent-tag); font-weight: bold; }\n    .field-row.highlight-proc { background: var(--highlight-bg); border-color: rgba(111,179,173,0.35); color: var(--accent-match); font-weight: bold; }\n    .field-row.unlinked-alert { background: rgba(217,112,95,0.1); border-color: rgba(217,112,95,0.3); color: var(--accent-alert); }\n    .field-key { color: var(--text-secondary); }\n    .highlight-proc .field-key, .highlight-tag .field-key { color: inherit; }\n    .result-banner {\n        position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(16px);\n        background: rgba(111,179,173,0.14); border: 1.5px solid var(--accent-match); color: var(--text-primary);\n        padding: 6px 20px; border-radius: 24px; font-size: 0.74rem; font-weight: bold; letter-spacing: 0.6px;\n        box-shadow: 0 0 24px rgba(111,179,173,0.3); display: flex; align-items: center; gap: 8px;\n        opacity: 0; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 40; white-space: nowrap;\n    }\n    .result-banner.visible { opacity: 1; transform: translateX(-50%) translateY(0); }\n    .result-banner .cmd { color: var(--accent-match); }\n    .footer {\n        display: flex; justify-content: space-between; align-items: center;\n        border-top: 1px solid var(--card-border); padding-top: 8px; font-size: 0.68rem; z-index: 10;\n    }\n    .command-tag { color: var(--text-secondary); }\n    .command-tag span { color: var(--accent-tag); font-weight: bold; }\n    .controls { display: flex; gap: 6px; align-items: center; }\n    button {\n        background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-primary);\n        padding: 4px 11px; border-radius: 4px; font-family: inherit; font-size: 0.66rem; cursor: pointer;\n        transition: all 0.2s; display: flex; align-items: center; gap: 5px;\n    }\n    button:hover { border-color: var(--accent-scan); color: var(--accent-scan); }\n    .timeline-dots { display: flex; gap: 5px; margin-left: 8px; }\n    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--card-border); transition: all 0.3s ease; }\n    .dot.active { background: var(--accent-match); box-shadow: 0 0 6px var(--accent-match); }\n    svg#overlay-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }\n    .path-animated { stroke-dasharray: 400; stroke-dashoffset: 400; animation: drawLine 1s forwards ease-in-out; }\n    @keyframes drawLine { to { stroke-dashoffset: 0; } }\n\n    @media (prefers-reduced-motion: reduce) {\n        .scene { transition: none; }\n        .zoom-target { animation: none; }\n        .path-animated { animation: none; stroke-dashoffset: 0; }\n    }\n";
-  const PS_BODY="\n\n<div class=\"container\" id=\"appContainer\">\n    <div class=\"progress-bar-container\"><div class=\"progress-bar\" id=\"progressBar\"></div></div>\n\n    <div class=\"header\">\n        <div class=\"title\">PSSCAN — PROCESS OBJECT DISCOVERY</div>\n        <div class=\"status-badge\" id=\"statusText\">PHASE 1: MEMORY IMAGE ANALYSIS</div>\n    </div>\n\n    <div class=\"stage-area\" id=\"stageArea\">\n        <div class=\"grid-bg\"></div>\n        <svg id=\"overlay-svg\"></svg>\n\n        <div class=\"scene active\" id=\"scene1\">\n            <div class=\"memory-image-box\">\n                <div class=\"memory-title\">\n                    <span>PHYSICAL MEMORY DUMP (RAM Image)</span>\n                    <span>Range: 0x00000000 - 0x1F0000000</span>\n                </div>\n                <div class=\"memory-regions\">\n                    <div class=\"region user-space\">\n                        <strong>User Space</strong>\n                        <span style=\"font-size:0.6rem; color: var(--text-secondary); margin-top:3px;\">Processes &amp; DLLs</span>\n                    </div>\n                    <div class=\"region kernel-pool\" id=\"kernelPoolRegion\">\n                        <strong>Kernel Memory Pool</strong>\n                        <span style=\"font-size:0.6rem; margin-top:3px;\">NonPagedPool / PagedPool Allocations</span>\n                        <div class=\"zoom-target\">Zoom Target: Scanner Focus</div>\n                    </div>\n                    <div class=\"region hardware\"><strong>HAL / Page Tables</strong></div>\n                </div>\n            </div>\n        </div>\n\n        <div class=\"scene\" id=\"scene2\">\n            <div class=\"pool-container\">\n                <div class=\"pool-header-info\">\n                    <span>KERNEL POOL REGION: 0x85000000 - 0x86000000</span>\n                    <span>TAG SCANNER: Seeking 'Proc' (0x636f7250)</span>\n                </div>\n                <div class=\"pool-grid\" id=\"poolGrid\"></div>\n                <div class=\"scan-laser\" id=\"scanLaser\"></div>\n            </div>\n        </div>\n\n        <div class=\"scene\" id=\"scene3\">\n            <div class=\"validation-layout\">\n                <div class=\"struct-card\" id=\"poolHeaderCard\">\n                    <div class=\"struct-card-title\"><span>_POOL_HEADER</span><span>0x852e1030</span></div>\n                    <div class=\"field-row\"><span class=\"field-key\">PreviousSize</span><span>0x00 (0 bytes)</span></div>\n                    <div class=\"field-row\"><span class=\"field-key\">BlockSize</span><span>0x80 (1024 bytes)</span></div>\n                    <div class=\"field-row highlight-tag\"><span class=\"field-key\">PoolTag</span><span>'Proc' (0x636f7250)</span></div>\n                    <div class=\"field-row\"><span class=\"field-key\">PoolType</span><span>NonPagedPool (0x0)</span></div>\n                    <div class=\"field-row\"><span class=\"field-key\">ProcessBlink</span><span>0x852e1000</span></div>\n                </div>\n                <div class=\"struct-card eprocess-card\" id=\"eprocessCard\">\n                    <div class=\"struct-card-title\"><span>_EPROCESS Object</span><span>Offset +0x00</span></div>\n                    <div class=\"field-row highlight-proc\"><span class=\"field-key\">ImageFileName</span><span>svchost_mal.exe</span></div>\n                    <div class=\"field-row highlight-proc\"><span class=\"field-key\">UniqueProcessId (PID)</span><span>4820</span></div>\n                    <div class=\"field-row highlight-proc\"><span class=\"field-key\">InheritedFromUniqueProcessId</span><span>1480 (explorer.exe)</span></div>\n                    <div class=\"field-row\"><span class=\"field-key\">CreateTime</span><span>2026-09-21 18:42:10 UTC</span></div>\n                    <div class=\"field-row unlinked-alert\"><span class=\"field-key\">ActiveProcessLinks</span><span>[UNLINKED / DKOM ROOTKIT]</span></div>\n                </div>\n            </div>\n        </div>\n\n        <div class=\"result-banner\" id=\"resultBanner\">\n            <span>Volatility</span> → <span class=\"cmd\">psscan</span> → <span>Process Object Found!</span>\n        </div>\n    </div>\n\n    <div class=\"footer\">\n        <div class=\"command-tag\">VOLATILITY PLUGIN: <span>vol.py -f memory.dmp windows.psscan</span></div>\n        <div class=\"controls\">\n            <button id=\"btnPause\" onclick=\"togglePause()\">⏸ PAUSE</button>\n            <button id=\"btnReplay\" onclick=\"restartAnimation()\">🔄 REPLAY</button>\n            <div class=\"timeline-dots\">\n                <div class=\"dot active\" id=\"dot1\"></div>\n                <div class=\"dot\" id=\"dot2\"></div>\n                <div class=\"dot\" id=\"dot3\"></div>\n                <div class=\"dot\" id=\"dot4\"></div>\n            </div>\n        </div>\n    </div>\n</div>\n\n<script>\n    const poolData = [\n        { addr: \"0x85012000\", tag: \"Thrd\", type: \"Thread\", match: false },\n        { addr: \"0x85054100\", tag: \"File\", type: \"FileObject\", match: false },\n        { addr: \"0x8511a050\", tag: \"Gdi \", type: \"GDI Alloc\", match: false },\n        { addr: \"0x851e3200\", tag: \"Port\", type: \"ALPC Port\", match: false },\n        { addr: \"0x852e1030\", tag: \"Proc\", type: \"_EPROCESS\", match: true },\n        { addr: \"0x85348120\", tag: \"Token\", type: \"TokenObj\", match: false },\n        { addr: \"0x85490080\", tag: \"Event\", type: \"EventObj\", match: false },\n        { addr: \"0x85501900\", tag: \"Driver\", type: \"DriverObj\", match: false },\n        { addr: \"0x856b3400\", tag: \"Free\", type: \"Free Block\", match: false },\n        { addr: \"0x857ff100\", tag: \"Key \", type: \"CM_KEY_BODY\", match: false }\n    ];\n\n    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;\n    const totalDuration = 8000;\n    let startTime = null;\n    let isPaused = prefersReducedMotion;\n    let animationFrameId = null;\n\n    const progressBar = document.getElementById('progressBar');\n    const statusText = document.getElementById('statusText');\n    const scanLaser = document.getElementById('scanLaser');\n    const resultBanner = document.getElementById('resultBanner');\n    const svgOverlay = document.getElementById('overlay-svg');\n\n    function initPoolGrid() {\n        const grid = document.getElementById('poolGrid');\n        grid.innerHTML = '';\n        poolData.forEach((item, index) => {\n            const block = document.createElement('div');\n            block.className = 'pool-block';\n            block.id = `block-${index}`;\n            block.innerHTML = `\n                <div style=\"font-size:0.56rem; color:var(--text-secondary);\">${item.addr}</div>\n                <div class=\"tag-badge\">'${item.tag}'</div>\n                <div style=\"font-size:0.56rem; text-align:right;\">${item.type}</div>\n            `;\n            grid.appendChild(block);\n        });\n    }\n\n    function setScene(activeSceneId) {\n        document.querySelectorAll('.scene').forEach(scene => scene.classList.remove('active'));\n        document.getElementById(activeSceneId).classList.add('active');\n    }\n\n    function setDot(dotIndex) {\n        for (let i = 1; i <= 4; i++) {\n            const dot = document.getElementById(`dot${i}`);\n            if (i === dotIndex) dot.classList.add('active'); else dot.classList.remove('active');\n        }\n    }\n\n    function drawConnectPath(startEl, endEl) {\n        svgOverlay.innerHTML = '';\n        if (!startEl || !endEl) return;\n        const containerRect = document.getElementById('stageArea').getBoundingClientRect();\n        const r1 = startEl.getBoundingClientRect();\n        const r2 = endEl.getBoundingClientRect();\n        const x1 = r1.left + r1.width / 2 - containerRect.left;\n        const y1 = r1.top + r1.height / 2 - containerRect.top;\n        const x2 = r2.left - containerRect.left;\n        const y2 = r2.top + r2.height / 2 - containerRect.top;\n        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');\n        const cx1 = x1 + (x2 - x1) * 0.5;\n        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1}, ${cx1} ${y2}, ${x2} ${y2}`);\n        path.setAttribute('stroke', '#6fb3ad');\n        path.setAttribute('stroke-width', '2.5');\n        path.setAttribute('fill', 'none');\n        path.setAttribute('class', 'path-animated');\n        svgOverlay.appendChild(path);\n    }\n\n    function animate(timestamp) {\n        if (!startTime) startTime = timestamp;\n        if (isPaused) { animationFrameId = requestAnimationFrame(animate); return; }\n\n        const elapsed = timestamp - startTime;\n        const progress = Math.min((elapsed / totalDuration) * 100, 100);\n        progressBar.style.width = `${progress}%`;\n\n        if (elapsed < 1800) {\n            setScene('scene1'); setDot(1);\n            statusText.innerText = \"PHASE 1: MEMORY IMAGE ANALYSIS & KERNEL POOL LOCATION\";\n            resultBanner.classList.remove('visible');\n            svgOverlay.innerHTML = '';\n        } else if (elapsed >= 1800 && elapsed < 4800) {\n            setScene('scene2'); setDot(2);\n            statusText.innerText = \"PHASE 2: SCANNING KERNEL ALLOCATIONS FOR POOLTAG 'Proc'\";\n            const poolProgress = (elapsed - 1800) / 3000;\n            scanLaser.style.opacity = '1';\n            scanLaser.style.left = `${poolProgress * 98}%`;\n            const currentBlockIdx = Math.floor(poolProgress * poolData.length);\n            poolData.forEach((item, idx) => {\n                const el = document.getElementById(`block-${idx}`);\n                if (!el) return;\n                if (idx < currentBlockIdx) el.className = item.match ? \"pool-block matched\" : \"pool-block rejected\";\n                else if (idx === currentBlockIdx) el.className = \"pool-block scanning\";\n                else el.className = \"pool-block\";\n            });\n        } else if (elapsed >= 4800 && elapsed < 6800) {\n            setScene('scene3'); setDot(3);\n            scanLaser.style.opacity = '0';\n            statusText.innerText = \"PHASE 3: VALIDATING _POOL_HEADER & DISCOVERING _EPROCESS\";\n            if (svgOverlay.children.length === 0) {\n                drawConnectPath(document.getElementById('poolHeaderCard'), document.getElementById('eprocessCard'));\n            }\n        } else if (elapsed >= 6800 && elapsed <= totalDuration) {\n            setScene('scene3'); setDot(4);\n            statusText.innerText = \"PHASE 4: PROCESS OBJECT VERIFIED (UNLINKED / HIDDEN FOUND)\";\n            resultBanner.classList.add('visible');\n        }\n\n        if (elapsed >= totalDuration) { startTime = timestamp; svgOverlay.innerHTML = ''; }\n        animationFrameId = requestAnimationFrame(animate);\n    }\n\n    function togglePause() {\n        isPaused = !isPaused;\n        const btn = document.getElementById('btnPause');\n        if (isPaused) {\n            btn.innerText = \"▶ PLAY\"; btn.style.borderColor = \"var(--accent-match)\"; btn.style.color = \"var(--accent-match)\";\n        } else {\n            btn.innerText = \"⏸ PAUSE\"; btn.style.borderColor = \"var(--card-border)\"; btn.style.color = \"var(--text-primary)\";\n        }\n    }\n\n    function restartAnimation() {\n        startTime = null;\n        svgOverlay.innerHTML = '';\n        if (isPaused && !prefersReducedMotion) togglePause();\n    }\n\n    window.onload = () => {\n        initPoolGrid();\n        if (prefersReducedMotion) {\n            const btn = document.getElementById('btnPause');\n            btn.innerText = \"▶ PLAY\"; btn.style.borderColor = \"var(--accent-match)\"; btn.style.color = \"var(--accent-match)\";\n        }\n        animationFrameId = requestAnimationFrame(animate);\n    };\n    window.onresize = () => { svgOverlay.innerHTML = ''; };\n</script>\n";
-  const PS_SCRIPT="\n    const poolData = [\n        { addr: \"0x85012000\", tag: \"Thrd\", type: \"Thread\", match: false },\n        { addr: \"0x85054100\", tag: \"File\", type: \"FileObject\", match: false },\n        { addr: \"0x8511a050\", tag: \"Gdi \", type: \"GDI Alloc\", match: false },\n        { addr: \"0x851e3200\", tag: \"Port\", type: \"ALPC Port\", match: false },\n        { addr: \"0x852e1030\", tag: \"Proc\", type: \"_EPROCESS\", match: true },\n        { addr: \"0x85348120\", tag: \"Token\", type: \"TokenObj\", match: false },\n        { addr: \"0x85490080\", tag: \"Event\", type: \"EventObj\", match: false },\n        { addr: \"0x85501900\", tag: \"Driver\", type: \"DriverObj\", match: false },\n        { addr: \"0x856b3400\", tag: \"Free\", type: \"Free Block\", match: false },\n        { addr: \"0x857ff100\", tag: \"Key \", type: \"CM_KEY_BODY\", match: false }\n    ];\n\n    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;\n    const totalDuration = 8000;\n    let startTime = null;\n    let isPaused = prefersReducedMotion;\n    let animationFrameId = null;\n\n    const progressBar = root.querySelector('#progressBar');\n    const statusText = root.querySelector('#statusText');\n    const scanLaser = root.querySelector('#scanLaser');\n    const resultBanner = root.querySelector('#resultBanner');\n    const svgOverlay = root.querySelector('#overlay-svg');\n\n    function initPoolGrid() {\n        const grid = root.querySelector('#poolGrid');\n        grid.innerHTML = '';\n        poolData.forEach((item, index) => {\n            const block = document.createElement('div');\n            block.className = 'pool-block';\n            block.id = `block-${index}`;\n            block.innerHTML = `\n                <div style=\"font-size:0.56rem; color:var(--text-secondary);\">${item.addr}</div>\n                <div class=\"tag-badge\">'${item.tag}'</div>\n                <div style=\"font-size:0.56rem; text-align:right;\">${item.type}</div>\n            `;\n            grid.appendChild(block);\n        });\n    }\n\n    function setScene(activeSceneId) {\n        root.querySelectorAll('.scene').forEach(scene => scene.classList.remove('active'));\n        document.getElementById(activeSceneId).classList.add('active');\n    }\n\n    function setDot(dotIndex) {\n        for (let i = 1; i <= 4; i++) {\n            const dot = root.querySelector('#dot${i}');\n            if (i === dotIndex) dot.classList.add('active'); else dot.classList.remove('active');\n        }\n    }\n\n    function drawConnectPath(startEl, endEl) {\n        svgOverlay.innerHTML = '';\n        if (!startEl || !endEl) return;\n        const containerRect = root.querySelector('#stageArea').getBoundingClientRect();\n        const r1 = startEl.getBoundingClientRect();\n        const r2 = endEl.getBoundingClientRect();\n        const x1 = r1.left + r1.width / 2 - containerRect.left;\n        const y1 = r1.top + r1.height / 2 - containerRect.top;\n        const x2 = r2.left - containerRect.left;\n        const y2 = r2.top + r2.height / 2 - containerRect.top;\n        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');\n        const cx1 = x1 + (x2 - x1) * 0.5;\n        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1}, ${cx1} ${y2}, ${x2} ${y2}`);\n        path.setAttribute('stroke', '#6fb3ad');\n        path.setAttribute('stroke-width', '2.5');\n        path.setAttribute('fill', 'none');\n        path.setAttribute('class', 'path-animated');\n        svgOverlay.appendChild(path);\n    }\n\n    function animate(timestamp) {\n        if (!startTime) startTime = timestamp;\n        if (isPaused) { animationFrameId = requestAnimationFrame(animate); return; }\n\n        const elapsed = timestamp - startTime;\n        const progress = Math.min((elapsed / totalDuration) * 100, 100);\n        progressBar.style.width = `${progress}%`;\n\n        if (elapsed < 1800) {\n            setScene('scene1'); setDot(1);\n            statusText.innerText = \"PHASE 1: MEMORY IMAGE ANALYSIS & KERNEL POOL LOCATION\";\n            resultBanner.classList.remove('visible');\n            svgOverlay.innerHTML = '';\n        } else if (elapsed >= 1800 && elapsed < 4800) {\n            setScene('scene2'); setDot(2);\n            statusText.innerText = \"PHASE 2: SCANNING KERNEL ALLOCATIONS FOR POOLTAG 'Proc'\";\n            const poolProgress = (elapsed - 1800) / 3000;\n            scanLaser.style.opacity = '1';\n            scanLaser.style.left = `${poolProgress * 98}%`;\n            const currentBlockIdx = Math.floor(poolProgress * poolData.length);\n            poolData.forEach((item, idx) => {\n                const el = root.querySelector('#block-${idx}');\n                if (!el) return;\n                if (idx < currentBlockIdx) el.className = item.match ? \"pool-block matched\" : \"pool-block rejected\";\n                else if (idx === currentBlockIdx) el.className = \"pool-block scanning\";\n                else el.className = \"pool-block\";\n            });\n        } else if (elapsed >= 4800 && elapsed < 6800) {\n            setScene('scene3'); setDot(3);\n            scanLaser.style.opacity = '0';\n            statusText.innerText = \"PHASE 3: VALIDATING _POOL_HEADER & DISCOVERING _EPROCESS\";\n            if (svgOverlay.children.length === 0) {\n                drawConnectPath(root.querySelector('#poolHeaderCard'), root.querySelector('#eprocessCard'));\n            }\n        } else if (elapsed >= 6800 && elapsed <= totalDuration) {\n            setScene('scene3'); setDot(4);\n            statusText.innerText = \"PHASE 4: PROCESS OBJECT VERIFIED (UNLINKED / HIDDEN FOUND)\";\n            resultBanner.classList.add('visible');\n        }\n\n        if (elapsed >= totalDuration) { startTime = timestamp; svgOverlay.innerHTML = ''; }\n        animationFrameId = requestAnimationFrame(animate);\n    }\n\n    function togglePause() {\n        isPaused = !isPaused;\n        const btn = root.querySelector('#btnPause');\n        if (isPaused) {\n            btn.innerText = \"▶ PLAY\"; btn.style.borderColor = \"var(--accent-match)\"; btn.style.color = \"var(--accent-match)\";\n        } else {\n            btn.innerText = \"⏸ PAUSE\"; btn.style.borderColor = \"var(--card-border)\"; btn.style.color = \"var(--text-primary)\";\n        }\n    }\n\n    function restartAnimation() {\n        startTime = null;\n        svgOverlay.innerHTML = '';\n        if (isPaused && !prefersReducedMotion) togglePause();\n    }\n\n    \n        initPoolGrid();\n        if (prefersReducedMotion) {\n            const btn = root.querySelector('#btnPause');\n            btn.innerText = \"▶ PLAY\"; btn.style.borderColor = \"var(--accent-match)\"; btn.style.color = \"var(--accent-match)\";\n        }\n        animationFrameId = requestAnimationFrame(animate);\n    window.addEventListener('resize', () => { svgOverlay.innerHTML = ''; });\n";
-
-  class EprocessMapDev extends HTMLElement{
-    connectedCallback(){
-      if(this.shadowRoot) return;
-      const root=this.attachShadow({mode:'open'});
-      root.innerHTML='<style>'+EP_STYLE+'</style><style>:host{display:block;width:100%;min-height:760px} body{padding:0!important} .page{max-width:none!important} header{margin-bottom:12px!important}</style>'+EP_BODY;
-      try{new Function('root',EP_SCRIPT)(root);}catch(e){console.error('eprocess-map-dev',e);}
-    }
-  }
-  class PsscanVisualizerDev extends HTMLElement{
-    connectedCallback(){
-      if(this.shadowRoot) return;
-      const root=this.attachShadow({mode:'open'});
-      root.innerHTML='<style>'+PS_STYLE+'</style><style>:host{display:block;width:100%;height:100%} .container{width:100%!important;height:100%!important;border:0!important;border-radius:0!important}</style>'+PS_BODY;
-      try{new Function('root',PS_SCRIPT)(root);}catch(e){console.error('psscan-visualizer-dev',e);}
-    }
-  }
-  customElements.define('eprocess-map-dev',EprocessMapDev);
-  customElements.define('psscan-visualizer-dev',PsscanVisualizerDev);
-})();
-</script>
 <script>
 (function(){
   var bar=document.getElementById('progressBar');
