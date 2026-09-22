@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pslist &amp; psscan — Windows Memory Forensics // 0xREYAD</title>
+<meta name="description" content="Part 01 of a Windows memory forensics series: how pslist and psscan enumerate Windows processes differently, and why the discrepancy between them matters.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0e12;
+    --panel:#111620;
+    --paper:#e9e4d4;
+    --accent:#5b8fd9;
+    --accent-dim:#33507a;
+    --accent-2:#4f8a86;
+    --line: rgba(233,228,212,0.14);
+    --text: #cfd3d6;
+    --text-dim:#7c848c;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--mono);
+    line-height:1.7;
+  }
+  a{color:var(--accent); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  header{
+    position:sticky; top:0; z-index:10;
+    background:rgba(11,14,18,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .bar{
+    max-width:860px; margin:0 auto; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper); letter-spacing:.02em;}
+  .brand span{color:var(--accent);}
+  .back{font-size:13px; color:var(--text-dim);}
+  .back:hover{color:var(--accent);}
+
+  main{max-width:860px; margin:0 auto; padding:56px 24px 96px;}
+
+  .kicker{
+    font-size:12px; color:var(--accent-2); letter-spacing:.06em;
+    display:flex; gap:10px; align-items:center; margin-bottom:18px;
+  }
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2); box-shadow:0 0 8px var(--accent-2);}
+
+  h1{
+    font-family:var(--head); font-weight:700; color:var(--paper);
+    font-size:clamp(28px,4.2vw,40px); line-height:1.2; margin-bottom:14px;
+  }
+  .dek{color:var(--text-dim); font-size:16px; max-width:62ch; margin-bottom:28px;}
+
+  .meta{
+    display:flex; flex-wrap:wrap; gap:18px; font-size:12.5px; color:var(--text-dim);
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    padding:14px 0; margin-bottom:40px;
+  }
+  .meta b{color:var(--text); font-weight:500;}
+
+  article h2{
+    font-family:var(--head); font-weight:600; color:var(--paper);
+    font-size:22px; margin:48px 0 14px; padding-top:6px;
+    border-top:1px solid var(--line);
+  }
+  article h2 .num{color:var(--accent); margin-right:10px; font-family:var(--mono); font-size:15px;}
+  article h3{
+    font-family:var(--head); font-weight:600; color:var(--text);
+    font-size:16px; margin:26px 0 10px;
+  }
+  article p{margin-bottom:14px; max-width:72ch; color:var(--text);}
+  article p.lede{color:var(--paper); font-size:17px;}
+  article ul, article ol{margin:0 0 16px 22px; max-width:70ch;}
+  article li{margin-bottom:6px;}
+  article strong{color:var(--paper); font-weight:600;}
+
+  .callout{
+    background:var(--panel); border-left:2px solid var(--accent);
+    padding:14px 18px; margin:20px 0; font-size:14.5px; color:var(--text);
+    max-width:70ch;
+  }
+
+  pre{
+    background:var(--panel); border:1px solid var(--line); border-radius:4px;
+    padding:16px 18px; overflow-x:auto; font-size:13px; color:var(--paper);
+    margin:16px 0 22px; line-height:1.55;
+  }
+  code{font-family:var(--mono); font-size:0.92em;}
+  p code, li code{background:var(--panel); padding:1px 6px; border-radius:3px; color:var(--accent);}
+
+  .cmd::before{content:"$ "; color:var(--accent-2);}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 24px; font-size:13.5px;}
+  th, td{border:1px solid var(--line); padding:9px 12px; text-align:left;}
+  th{color:var(--paper); font-family:var(--head); font-weight:600; background:var(--panel);}
+  td{color:var(--text);}
+
+  .widget-frame{margin:22px 0 28px;}
+  .widget-frame iframe{width:100%; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; background:var(--panel); display:block;}
+  .widget-frame.tall iframe{aspect-ratio:auto; height:660px;}
+  .widget-frame figcaption{margin-top:9px; font-size:12.5px; color:var(--text-dim);}
+
+  .refs{margin-top:56px; padding-top:22px; border-top:1px solid var(--line);}
+  .refs h2{border-top:none; margin-top:0;}
+  .refs ol{list-style:none; margin-left:0; counter-reset:r;}
+  .refs li{counter-increment:r; font-size:13px; color:var(--text-dim); margin-bottom:10px; padding-left:26px; position:relative;}
+  .refs li::before{content:"[" counter(r) "]"; position:absolute; left:0; color:var(--accent-2);}
+
+  footer{border-top:1px solid var(--line); padding:28px 24px; text-align:center; font-size:12px; color:var(--text-dim);}
+
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">0x<span>REYAD</span></div>
+    <a class="back" href="/writeups.html">&larr; All writeups</a>
+  </div>
+</header>
+
+<main>
+  <div class="kicker"><span class="dot"></span>WINDOWS MEMORY FORENSICS — PART 01</div>
+  <h1>pslist &amp; psscan: two different views of the same memory image</h1>
+  <p class="dek">Volatility can tell you what processes were running on a system in more than one way — and the two most basic plugins don't always agree. Understanding why is the first real lesson in Windows memory forensics.</p>
+
+  <div class="meta">
+    <span><b>Series</b> — Windows Memory Forensics, Part 01</span>
+    <span><b>Topic</b> — Volatility, _EPROCESS, DKOM</span>
+    <span><b>Read</b> — ~14 min</span>
+  </div>
+
+  <article>
+    <p class="lede">When analyzing a Windows memory image with Volatility, one of the first questions we usually ask is: what processes were present on the system? At first that sounds simple — run <code>pslist</code>, get a list, start investigating. But memory forensics gets interesting once we ask a harder question: how does Volatility actually know that a process exists?</p>
+    <p>To answer that, we need to understand how Windows represents processes in kernel memory. This part covers how Windows represents processes using <code>_EPROCESS</code>, the role of <code>ActiveProcessLinks</code>, how <code>pslist</code> enumerates processes and why it can miss some, how <code>psscan</code> discovers process objects directly from memory using pool tags, why <code>psscan</code> can return terminated or stale objects, and why comparing the two plugins is a core forensic workflow.</p>
+
+    <h2><span class="num">01</span>Volatility 2 vs Volatility 3</h2>
+    <p>The commands differ between framework versions, though the underlying Windows concepts don't change.</p>
+    <h3>Volatility 2</h3>
+    <pre><code class="cmd">vol.py -f memory.raw pslist
+vol.py -f memory.raw psscan</code></pre>
+    <p>Volatility 2 used Windows profiles and older symbol mechanisms to understand kernel structures.</p>
+    <h3>Volatility 3</h3>
+    <pre><code class="cmd">python vol.py -f memory.raw windows.pslist
+python vol.py -f memory.raw windows.psscan</code></pre>
+    <p>Volatility 3 uses a newer, symbol-based architecture. The framework changed — the concepts we're investigating (<code>_EPROCESS</code>, process lists, process objects in memory) did not.</p>
+
+    <h2><span class="num">02</span>pslist — enumerating the active process list</h2>
+    <p>The easiest way to think about <code>pslist</code>: it follows Windows' active process list and enumerates whatever is connected to it.</p>
+
+    <h3>_EPROCESS — the Windows process object</h3>
+    <p>Windows represents each process with an internal kernel structure called <code>_EPROCESS</code>, containing fields such as <code>UniqueProcessId</code>, <code>InheritedFromUniqueProcessId</code>, <code>ImageFileName</code>, <code>ActiveProcessLinks</code>, <code>Peb</code>, and <code>ObjectTable</code>. The exact layout isn't fixed across Windows versions and builds — fields move and get reinterpreted. What matters for forensics is the concept: an <code>_EPROCESS</code> object represents a process inside kernel memory. One field is central to <code>pslist</code>: <code>ActiveProcessLinks</code>.</p>
+
+    <figure class="widget-frame tall">
+      <iframe src="/writeups/assets/eprocess-map.html" title="Interactive: _EPROCESS structure map" loading="lazy"></iframe>
+      <figcaption>Interactive map — click any pointer field on <code>_EPROCESS</code> to trace it out to the structure it leads to.</figcaption>
+    </figure>
+
+    <h3>What is ActiveProcessLinks?</h3>
+    <p><code>ActiveProcessLinks</code> is a linked-list entry embedded inside <code>_EPROCESS</code>, using the Windows <code>LIST_ENTRY</code> concept (a <code>Flink</code>/<code>Blink</code> pair). Windows maintains a doubly linked list of active processes, with a head commonly associated with <code>PsActiveProcessHead</code>:</p>
+    <pre>PsActiveProcessHead
+        |
+        v
+   _EPROCESS &lt;-&gt; _EPROCESS &lt;-&gt; _EPROCESS &lt;-&gt; ...</pre>
+    <div class="callout"><strong>Important distinction:</strong> <code>PsActiveProcessHead</code> is the list head, not an <code>_EPROCESS</code> object itself. Volatility uses the <code>ActiveProcessLinks</code> offset to recover the surrounding <code>_EPROCESS</code> object and pull process information from it.</div>
+
+    <h3>How pslist actually works</h3>
+    <pre>Memory Image -&gt; Kernel Structures -&gt; PsActiveProcessHead
+    -&gt; ActiveProcessLinks -&gt; _EPROCESS (PID, PPID, ImageFileName, CreateTime)
+    -&gt; next ActiveProcessLinks -&gt; next _EPROCESS -&gt; ...</pre>
+    <p>So <code>windows.pslist</code> isn't searching memory for process names — it's walking Windows' own understanding of "which processes are active," using kernel structure knowledge. Instead of "pslist gives me processes," think: <strong>pslist gives me the processes reachable through the active process list.</strong> That distinction matters a great deal during rootkit investigations.</p>
+
+    <h2><span class="num">03</span>The blind spot of pslist</h2>
+    <p>What happens if a malicious kernel-level component modifies the process list directly? One technique for this is <strong>DKOM — Direct Kernel Object Manipulation</strong>, where an attacker manipulates kernel objects directly.</p>
+    <pre>Normal:
+PsActiveProcessHead -&gt; explorer.exe -&gt; svchost.exe -&gt; malware.exe
+
+After DKOM:
+PsActiveProcessHead -&gt; explorer.exe -&gt; svchost.exe
+
+malware.exe's _EPROCESS still exists in memory,
+but is no longer linked into the active process list.</pre>
+    <p>The process object can still exist in memory even though it's no longer reachable through the list. Since <code>pslist</code> depends on that list, it may simply not see it. <strong>Not appearing in pslist does not prove a process never existed.</strong></p>
+
+    <h2><span class="num">04</span>psscan — searching memory for process objects</h2>
+    <p>This is where <code>psscan</code> takes a different approach: instead of following <code>ActiveProcessLinks</code>, it searches memory for structures that look like process objects — which means understanding the Windows kernel pool.</p>
+    <p>Windows dynamically allocates kernel objects from memory pools, and each pool allocation can carry identifying metadata known as a <strong>Pool Tag</strong>. For a process object, the pool tag associated with <code>_EPROCESS</code> is <code>Proc</code>. Conceptually:</p>
+    <pre>Search memory for pool allocations
+    -&gt; look for "Proc" tag indicators
+    -&gt; check the surrounding structure
+    -&gt; does the data make sense?
+         yes -&gt; potential _EPROCESS
+         no  -&gt; ignore / invalid candidate</pre>
+    <p>It's not simply "find the word Proc and call it a process" — the scanner combines the tag with the surrounding memory structure and expected process-object characteristics. This is why <code>psscan</code> can potentially find a process even when it's no longer connected to the active process list.</p>
+
+    <figure class="widget-frame">
+      <iframe src="/writeups/assets/psscan-visualizer.html" title="Interactive: psscan process object discovery" loading="lazy"></iframe>
+      <figcaption>Walkthrough — <code>psscan</code> sweeping kernel pool allocations for the <code>'Proc'</code> tag and recovering an unlinked <code>_EPROCESS</code> object.</figcaption>
+    </figure>
+
+    <h2><span class="num">05</span>Why can psscan find more processes?</h2>
+    <p>Suppose <code>pslist</code> returns <code>System</code>, <code>explorer.exe</code>, <code>svchost.exe</code> — but <code>psscan</code> also returns a fourth entry, <code>suspicious.exe</code>. At first glance that looks like hidden malware. It isn't automatically that. Three explanations are common:</p>
+    <ul>
+      <li><strong>Active but unlinked</strong> — the <code>_EPROCESS</code> object may still exist in memory while no longer reachable through <code>ActiveProcessLinks</code>, consistent with DKOM-style hiding.</li>
+      <li><strong>Recently terminated</strong> — a process can terminate while parts of its kernel object remain in memory; <code>psscan</code> can recover remnants of processes no longer active at acquisition time.</li>
+      <li><strong>Stale or reused memory</strong> — kernel memory is constantly allocated and freed, and a region that once held a process object can still contain enough recognizable data to be identified. A <code>psscan</code> hit does not automatically mean "this was running at acquisition time."</li>
+    </ul>
+
+    <h2><span class="num">06</span>pslist vs psscan</h2>
+    <table>
+      <tr><th></th><th>pslist</th><th>psscan</th></tr>
+      <tr><td>Main technique</td><td>Active process list traversal</td><td>Memory-based process-object scanning</td></tr>
+      <tr><td>Uses ActiveProcessLinks</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Searches memory for process objects</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Can find unlinked processes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Can find terminated remnants</td><td>Generally no</td><td>Yes</td></tr>
+      <tr><td>Speed</td><td>Usually faster</td><td>Usually slower</td></tr>
+      <tr><td>Can return stale objects</td><td>Less likely</td><td>Possible</td></tr>
+      <tr><td>Main purpose</td><td>Enumerate processes exposed by the active list</td><td>Discover process objects from memory</td></tr>
+    </table>
+    <p>Neither plugin is "better" — they provide different views of the same memory image. <code>pslist</code> asks what's reachable through the active list; <code>psscan</code> asks what process objects can be discovered independently of it.</p>
+
+    <h2><span class="num">07</span>The most important forensic scenario</h2>
+    <p>The interesting case is a process — say <code>malware.exe</code>, PID 1800 — that appears in <code>psscan</code> but not in <code>pslist</code>. That's a forensic discrepancy, and a lead, not a verdict. Possible explanations: recently terminated, unlinked/hidden, a stale process object, or a memory/acquisition artifact. We still have to investigate it.</p>
+
+    <h2><span class="num">08</span>Investigating the discrepancy</h2>
+    <p>Once a process shows up only in <code>psscan</code>, correlate it with additional evidence:</p>
+    <ul>
+      <li><strong>Process lifetime</strong> — check <code>CreateTime</code> / <code>ExitTime</code> to see whether the object represents an already-terminated process. No single field is absolute proof either way.</li>
+      <li><strong>Parent process</strong> — check <code>InheritedFromUniqueProcessId</code>. Does the parent-child relationship make sense (<code>explorer.exe → suspicious.exe</code> vs. <code>services.exe → legitimate_service.exe</code>)?</li>
+      <li><strong>Threads</strong> — do the process's threads look consistent with an active process, or with a leftover object?</li>
+      <li><strong>Virtual memory</strong> — investigate the address space (covered in the next part on VAD analysis).</li>
+      <li><strong>Loaded modules</strong> — expected modules vs. suspicious DLLs, unusual regions, injected or manually mapped code.</li>
+      <li><strong>Handles</strong> — interactions with files, registry keys, other processes, threads, and Windows objects.</li>
+      <li><strong>Network activity</strong> — connections, remote IPs, listening ports, sockets.</li>
+    </ul>
+    <p>The goal throughout: figure out what this process was actually doing.</p>
+
+    <h2><span class="num">09</span>Why use both together</h2>
+    <p>Running only <code>pslist</code> means relying entirely on the active process list. Running only <code>psscan</code> means you may encounter terminated or stale remnants with no easy way to tell them apart. Comparing both — <code>pslist</code> + <code>psscan</code> → discrepancy → further investigation — produces a far stronger workflow than either alone. The goal isn't a plugin that says "this is malware." It's identifying inconsistencies worth investigating with additional evidence.</p>
+
+    <h2><span class="num">10</span>Practical workflow</h2>
+    <ol>
+      <li><strong>Run pslist</strong> — <code>python vol.py -f memory.raw windows.pslist</code>. Note PID, PPID, process name, creation time, and relationships.</li>
+      <li><strong>Run psscan</strong> — <code>python vol.py -f memory.raw windows.psscan</code>. Compare against <code>pslist</code>, and flag <code>psscan</code>-only processes.</li>
+      <li><strong>Investigate the discrepancy</strong> — for every interesting PID: was it active? terminated? does the parent make sense? suspicious memory, modules, or network activity?</li>
+      <li><strong>Go deeper</strong> — VADs, memory mappings, injected code, loaded modules, handles, network artifacts, command line. This is where process enumeration turns into real memory forensics.</li>
+    </ol>
+
+    <h2><span class="num">11</span>Key takeaway</h2>
+    <p><code>pslist</code> ≠ <code>psscan</code>. They aren't two commands that happen to produce the same list — they use fundamentally different approaches to identify processes. <code>pslist</code> tells you what's exposed through the active process list; <code>psscan</code> tells you what process objects can be discovered independently of it. When the results disagree, don't immediately label the process malicious — investigate why the views disagree: terminated process, stale memory, an unlinked/hidden process, or a memory/acquisition artifact. That mindset matters more than memorizing plugin syntax.</p>
+    <p>Windows memory forensics is fundamentally about understanding how the OS represents state in memory. For process analysis, that starts with <code>_EPROCESS</code> and its <code>ActiveProcessLinks</code>, and from there, why <code>pslist</code> and <code>psscan</code> can disagree — and why that disagreement is where the real forensic value lives.</p>
+
+    <div class="refs">
+      <h2>References</h2>
+      <ol>
+        <li>Volatility Foundation — Volatility 3 Documentation / Windows Tutorial. Covers Volatility 3 usage, Windows plugins, <code>windows.pslist</code>, and the framework's symbol-based approach.</li>
+        <li>Volatility Foundation — Volatility 2 Command Reference. Reference for <code>pslist</code> and <code>psscan</code>, including <code>pslist</code> walking <code>PsActiveProcessHead</code> and <code>psscan</code> using pool-tag scanning.</li>
+        <li>Volatility Foundation — Volatility Framework (GitHub). Original framework repository describing the Windows plugins, including <code>pslist</code> and <code>psscan</code>.</li>
+        <li>Microsoft Learn — Enable Pool Tagging. Kernel pool tagging and how allocations are associated with tags.</li>
+        <li>Microsoft Learn — PoolMon Display. Reference for pool tags, including the 4-byte tag associated with pool allocations.</li>
+        <li>Microsoft Learn — !pool WinDbg Extension. Examining kernel pool allocations and their associated pool tags.</li>
+        <li>Microsoft Learn — ExAllocatePool2. Windows kernel pool allocation and the use of pool tags to identify allocation paths.</li>
+      </ol>
+    </div>
+  </article>
+</main>
+
+<footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
+</body>
+</html>
