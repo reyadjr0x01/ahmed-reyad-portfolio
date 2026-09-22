@@ -31,8 +31,9 @@
   .bar{max-width:860px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center;}
   .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper);}
   .brand span{color:var(--accent);}
-  .home{font-size:13px; color:var(--text-dim);}
-  .home:hover{color:var(--accent);}
+  .nav-links{display:flex; gap:24px; font-size:13px; color:var(--text-dim);}
+  .nav-links a:hover{color:var(--accent);}
+  .nav-links a.active{color:var(--accent);}
 
   main{max-width:860px; margin:0 auto; padding:56px 24px 96px;}
   .kicker{font-size:12px; color:var(--accent-2); letter-spacing:.06em; display:flex; align-items:center; gap:10px; margin-bottom:16px;}
@@ -56,7 +57,11 @@
 <header>
   <div class="bar">
     <div class="brand">0x<span>REYAD</span></div>
-    <a class="home" href="/">&larr; Home</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/portfolio.html">Portfolio</a>
+      <a href="/writeups.html" class="active">Writeups</a>
+    </div>
   </div>
 </header>
 
