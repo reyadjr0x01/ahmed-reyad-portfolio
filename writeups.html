@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writeups // Ahmed Mohamed Reyad</title>
+<meta name="description" content="Technical writeups on Windows memory forensics, detection engineering, and incident response.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0e12;
+    --panel:#111620;
+    --paper:#e9e4d4;
+    --accent:#5b8fd9;
+    --accent-dim:#33507a;
+    --accent-2:#4f8a86;
+    --line: rgba(233,228,212,0.14);
+    --text: #cfd3d6;
+    --text-dim:#7c848c;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--ink); color:var(--text); font-family:var(--mono); line-height:1.6;}
+  a{color:inherit; text-decoration:none;}
+
+  header{border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(11,14,18,0.92); backdrop-filter:blur(6px); z-index:10;}
+  .bar{max-width:860px; margin:0 auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center;}
+  .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper);}
+  .brand span{color:var(--accent);}
+  .home{font-size:13px; color:var(--text-dim);}
+  .home:hover{color:var(--accent);}
+
+  main{max-width:860px; margin:0 auto; padding:56px 24px 96px;}
+  .kicker{font-size:12px; color:var(--accent-2); letter-spacing:.06em; display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2); box-shadow:0 0 8px var(--accent-2);}
+  h1{font-family:var(--head); font-weight:700; color:var(--paper); font-size:clamp(26px,4vw,36px); margin-bottom:12px;}
+  .sub{color:var(--text-dim); font-size:15px; max-width:60ch; margin-bottom:40px;}
+
+  .list{display:flex; flex-direction:column; border-top:1px solid var(--line);}
+  .item{display:block; padding:26px 0; border-bottom:1px solid var(--line); transition:padding-left .15s ease;}
+  .item:hover{padding-left:8px;}
+  .item:hover .title{color:var(--accent);}
+  .item-meta{font-size:12px; color:var(--accent-2); margin-bottom:8px; letter-spacing:.03em;}
+  .title{font-family:var(--head); font-weight:600; color:var(--paper); font-size:19px; margin-bottom:8px;}
+  .desc{color:var(--text-dim); font-size:14px; max-width:65ch;}
+
+  footer{border-top:1px solid var(--line); padding:28px 24px; text-align:center; font-size:12px; color:var(--text-dim);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">0x<span>REYAD</span></div>
+    <a class="home" href="/">&larr; Home</a>
+  </div>
+</header>
+
+<main>
+  <div class="kicker"><span class="dot"></span>WRITEUPS</div>
+  <h1>Notes from the SOC floor</h1>
+  <p class="sub">Technical writeups on memory forensics, detection engineering, and the tools I use to investigate. Written as I work through the material.</p>
+
+  <div class="list">
+    <a class="item" href="/writeups/pslist-psscan.html">
+      <div class="item-meta">WINDOWS MEMORY FORENSICS — PART 01</div>
+      <div class="title">pslist &amp; psscan: two different views of the same memory image</div>
+      <div class="desc">How Volatility enumerates Windows processes two different ways — following the active process list vs. scanning memory for process objects by pool tag — and why the discrepancy between them is the real forensic signal.</div>
+    </a>
+  </div>
+</main>
+
+<footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
+</body>
+</html>
