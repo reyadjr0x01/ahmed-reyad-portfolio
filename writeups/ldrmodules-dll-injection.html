@@ -142,7 +142,7 @@
   .pms-embed .eyebrow{ color:var(--blue); font-family:monospace; font-size:12px; letter-spacing:.18em; text-transform:uppercase; margin-bottom:10px; }
   .pms-embed .pms-h1{ margin:0; font-size:clamp(24px,3.4vw,38px); letter-spacing:-.04em; font-weight:700; }
   .pms-embed .subtitle{ margin-top:10px; max-width:850px; color:var(--muted); line-height:1.7; font-size:14px; }
-  .pms-embed .workspace{display: flex; gap: 20px; flex-direction: column; }
+  .pms-embed .workspace{ display:grid; grid-template-columns:minmax(0,1fr) 350px; gap:20px; }
   .pms-embed .diagram{ position:relative; min-height:690px; background:linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), var(--panel); background-size:32px 32px; border:1px solid var(--border); border-radius:14px; padding:35px; overflow:hidden; }
   .pms-embed .diagram-title{ color:var(--muted); font-family:monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:30px; }
   .pms-embed .hierarchy{ position:relative; height:590px; }
@@ -693,21 +693,32 @@ windows.ldrmodules detects it</pre>
 
     <div class="case-box">
       <h4>4.1 Example 1 — normal process</h4>
-      <p><code>wininit.exe → ntmarta.dll</code>:</p>
-      <ul>
-        <li><code>InLoad = True</code></li>
-        <li><code>InInit = True</code></li>
-        <li><code>InMem = True</code></li>
-        <li><code>MappedPath</code> present</li>
-      </ul>
-      <p>Everything matches — this is normal.</p>
+      <p>Process: <code>wininit.exe</code> (PID 552), DLL <code>ntmarta.dll</code>. Real <code>ldrmodules</code> output:</p>
+      <pre><code class="cmd">vol.py -f memory.img windows.ldrmodules.LdrModules --pid 552</code></pre>
+      <table>
+        <tr><th>Pid</th><th>Process</th><th>Base</th><th>InLoad</th><th>InInit</th><th>InMem</th><th>MappedPath</th></tr>
+        <tr><td>552</td><td>wininit.exe</td><td>0x7fffddc60000</td><td>True</td><td>True</td><td>True</td><td>\Windows\System32\ntmarta.dll</td></tr>
+      </table>
+      <p><code>InLoad</code>, <code>InInit</code>, and <code>InMem</code> are all <code>True</code>, and <code>MappedPath</code> points to a legitimate System32 file. Everything matches — this is normal.</p>
     </div>
 
     <div class="case-box">
       <h4>4.2 Example 2 — Stuxnet</h4>
-      <p>Process: <code>lsass.exe</code>. Two suspicious regions appear.</p>
-      <p><strong>Region 1</strong> — Base <code>0x80000</code>. Missing from all PEB lists, no <code>MappedPath</code> → very strong evidence of an injected DLL.</p>
-      <p><strong>Region 2</strong> — Base <code>0x1000000</code>. Present in PEB, <code>InInit = False</code>, no <code>MappedPath</code>. At first glance <code>InInit = False</code> looks normal (process executable), but <code>MappedPath = empty</code> is <strong>not normal</strong> — the executable should point to <code>\Windows\System32\lsass.exe</code>. Since no backing file exists, this indicates <strong>Process Hollowing</strong>: the original executable has been removed from memory and replaced with malicious code.</p>
+      <p>Process: <code>lsass.exe</code> (PID 868). Real <code>ldrmodules</code> output against a Stuxnet-infected memory image:</p>
+      <pre><code class="cmd">vol.py -f stuxnet.img windows.ldrmodules.LdrModules --pid 868</code></pre>
+      <table>
+        <tr><th>Pid</th><th>Process</th><th>Base</th><th>InLoad</th><th>InInit</th><th>InMem</th><th>MappedPath</th></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x80000</td><td>False</td><td>False</td><td>False</td><td>N/A</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x7c900000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\ntdll.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x1000000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\kernel32.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x7c800000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\advapi32.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x77dd0000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\rpcrt4.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x77e70000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\secur32.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x77fe0000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\gdi32.dll</td></tr>
+        <tr><td>868</td><td>lsass.exe</td><td>0x77f10000</td><td>True</td><td>True</td><td>True</td><td>\WINDOWS\system32\user32.dll</td></tr>
+      </table>
+      <p><strong>Region <code>0x80000</code></strong> stands out immediately: <code>InLoad = False</code>, <code>InInit = False</code>, <code>InMem = False</code>, <code>MappedPath = N/A</code>. It's present in the process but absent from every PEB list and has no backing file at all — the strongest possible <code>ldrmodules</code> signal, consistent with a manually mapped or reflectively injected region rather than anything loaded through <code>LoadLibrary()</code>.</p>
+      <p>Every other module in this same trace — <code>ntdll.dll</code>, <code>kernel32.dll</code>, <code>advapi32.dll</code>, <code>rpcrt4.dll</code>, <code>secur32.dll</code>, <code>gdi32.dll</code>, <code>user32.dll</code> — comes back clean: <code>True</code>/<code>True</code>/<code>True</code> with a legitimate System32 <code>MappedPath</code>. That contrast is the whole point of the tool: <code>ldrmodules</code> doesn't flag a process as malicious, it flags one specific memory region inside an otherwise normal-looking process.</p>
     </div>
 
     <h3>Correlating ldrmodules with malfind</h3>
