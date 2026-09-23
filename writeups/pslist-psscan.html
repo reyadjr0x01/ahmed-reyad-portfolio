@@ -43,12 +43,16 @@
     max-width:860px; margin:0 auto; padding:16px 24px;
     display:flex; align-items:center; justify-content:space-between;
   }
-  .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper); letter-spacing:.02em;}
+  .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper); letter-spacing:.02em; position:relative;}
   .brand span{color:var(--accent);}
-  .back{font-size:13px; color:var(--text-dim);}
-  .back:hover{color:var(--accent);}
+  .brand::after{ content:'_'; color:var(--accent); margin-left:2px; animation:blink 1.1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0;} }
+  .back{font-size:13px; color:var(--text-dim); position:relative; padding-bottom:4px;}
+  .back::after{ content:''; position:absolute; left:0; bottom:-2px; width:0; height:1px; background:var(--accent); box-shadow:0 0 6px var(--accent); transition:width .25s ease; }
+  .back:hover{color:var(--accent); text-decoration:none;}
+  .back:hover::after{ width:100%; }
 
-  main{max-width:1005px; margin:0 auto; padding:56px 24px 96px;}
+  main{max-width:1005px; margin:0 auto; padding:56px 24px 96px; position:relative; z-index:1;}
 
   .kicker{
     font-size:12px; color:var(--accent-2); letter-spacing:.06em;
@@ -73,7 +77,9 @@
     font-family:var(--head); font-weight:600; color:var(--paper);
     font-size:22px; margin:48px 0 14px; padding-top:6px;
     border-top:1px solid var(--line);
+    transition:border-color .3s ease;
   }
+  article h2:hover{ border-color:var(--accent-dim); }
   article h2 .num{color:var(--accent); margin-right:10px; font-family:var(--mono); font-size:15px;}
   article h3{
     font-family:var(--head); font-weight:600; color:var(--text);
@@ -88,7 +94,9 @@
   .callout{
     background:var(--panel); border-left:2px solid var(--accent);
     padding:14px 18px; margin:20px 0; font-size:14.5px; color:var(--text);
+    transition:box-shadow .3s ease;
   }
+  .callout:hover{ box-shadow:0 0 24px -8px rgba(91,143,217,.4); }
 
   pre{
     background:var(--panel); border:1px solid var(--line); border-radius:4px;
@@ -105,23 +113,10 @@
   th{color:var(--paper); font-family:var(--head); font-weight:600; background:var(--panel);}
   td{color:var(--text);}
 
-  .widget-frame{
-    margin:22px -70px 28px;
-    width:calc(100% + 140px);
-  }
-  .widget-frame iframe{
-    width:100%;
-    aspect-ratio:16/9;
-    border:1px solid var(--line);
-    border-radius:6px;
-    background:var(--panel);
-    display:block;
-    min-height:520px;
-  }
-  .widget-frame.tall iframe{
-    aspect-ratio:auto;
-    height:777px;
-  }
+  .widget-frame{margin:22px 0 28px;}
+  .widget-frame iframe{width:100%; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; background:var(--panel); display:block; transition:box-shadow .3s ease, border-color .3s ease;}
+  .widget-frame.tall iframe{aspect-ratio:auto; height:777px;}
+  .widget-frame:hover iframe{ border-color:var(--accent-dim); box-shadow:0 0 30px -12px rgba(91,143,217,.4); }
   .widget-frame figcaption{margin-top:9px; font-size:12.5px; color:var(--text-dim);}
 
   .refs{margin-top:56px; padding-top:22px; border-top:1px solid var(--line);}
@@ -130,77 +125,31 @@
   .refs li{counter-increment:r; font-size:13px; color:var(--text-dim); margin-bottom:10px; padding-left:26px; position:relative;}
   .refs li::before{content:"[" counter(r) "]"; position:absolute; left:0; color:var(--accent-2);}
 
-  footer{border-top:1px solid var(--line); padding:28px 24px; text-align:center; font-size:12px; color:var(--text-dim);}
+  .series-nav{margin-top:56px; padding-top:22px; border-top:1px solid var(--line); display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:13.5px;}
+  .series-nav a{color:var(--text-dim);}
+  .series-nav a:hover{color:var(--accent);}
 
-  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto;} }
+  footer{border-top:1px solid var(--line); padding:28px 24px; text-align:center; font-size:12px; color:var(--text-dim); position:relative; z-index:1;}
 
-  /* article polish */
-  body{background:
-    radial-gradient(circle at 15% 0%, rgba(91,143,217,.09), transparent 30%),
-    radial-gradient(circle at 90% 35%, rgba(79,138,134,.06), transparent 26%),
-    var(--ink);}
-  ::selection{background:var(--accent);color:var(--ink);}
-  .progress{position:fixed;top:0;left:0;width:100%;height:2px;z-index:100;background:transparent;}
-  .progress span{display:block;height:100%;width:0;background:var(--accent);box-shadow:0 0 10px rgba(91,143,217,.8);}
-  .bar{max-width:1180px;}
-  .brand::after{content:'_';color:var(--accent);margin-left:2px;animation:blink 1.1s steps(1) infinite;}
-  @keyframes blink{50%{opacity:0;}}
-  .back{border:1px solid var(--line);padding:7px 11px;border-radius:3px;transition:.2s;}
-  .back:hover{text-decoration:none;border-color:var(--accent);background:rgba(91,143,217,.07);}
-  main{max-width:1180px;padding:58px 24px 110px;}
-  .article-hero{max-width:900px;padding:26px 0 34px;}
-  .kicker{margin-bottom:16px;}
-  .kicker .dot{animation:pulse 2s ease-in-out infinite;}
-  @keyframes pulse{50%{box-shadow:0 0 16px var(--accent-2);opacity:.55;}}
-  h1{font-size:clamp(32px,5vw,54px);max-width:18ch;letter-spacing:-.025em;}
-  .dek{font-size:17px;line-height:1.8;max-width:72ch;}
-  .meta{gap:0;margin-top:28px;margin-bottom:0;display:flex;border:1px solid var(--line);background:rgba(17,22,32,.72);border-radius:5px;overflow:hidden;}
-  .meta span{padding:12px 15px;border-right:1px solid var(--line);}
-  .meta span:last-child{border-right:0;}
-  .meta b{color:var(--accent-2);}
-  .layout{display:grid;grid-template-columns:minmax(0,760px) 220px;gap:58px;align-items:start;}
-  article{min-width:0;}
-  article h2{font-size:24px;margin:58px 0 16px;padding:15px 0 0;}
-  article h2 .num{display:inline-block;min-width:28px;}
-  article h3{font-size:17px;}
-  article p{max-width:74ch;line-height:1.82;}
-  article p.lede{font-size:18px;line-height:1.85;margin-top:2px;}
-  .callout{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;box-shadow:0 12px 30px rgba(0,0,0,.14);}
-  pre{border-radius:5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.025);position:relative;}
-  .toc{position:sticky;top:82px;border-left:1px solid var(--line);padding-left:18px;}
-  .toc-title{font-size:11px;color:var(--accent-2);letter-spacing:.08em;margin-bottom:12px;}
-  .toc a{display:block;color:var(--text-dim);font-size:11px;line-height:1.45;padding:5px 0;transition:.15s;}
-  .toc a:hover{text-decoration:none;color:var(--paper);padding-left:4px;}
-  .toc a.active{color:var(--accent);}
-  .widget-frame iframe{box-shadow:0 18px 45px rgba(0,0,0,.2);}
-  .refs{margin-top:70px;}
-  footer{background:rgba(17,22,32,.45);}
-  @media (max-width:900px){
-    .widget-frame{
-      margin-left:0;
-      margin-right:0;
-      width:100%;
-    }
-    .widget-frame iframe{min-height:460px;}
-    .layout{grid-template-columns:1fr;}
-    .toc{display:none;}
-    .article-hero{padding-bottom:28px;}
-  }
-  @media (max-width:620px){
-    main{padding:38px 18px 80px;}
-    .bar{padding:13px 18px;}
-    .meta{display:grid;grid-template-columns:1fr;}
-    .meta span{border-right:0;border-bottom:1px solid var(--line);}
-    .meta span:last-child{border-bottom:0;}
-    h1{font-size:clamp(30px,10vw,42px);}
-  }
+  /* ambient life: drifting glow, moving grid */
+  .bg-fx{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .bg-fx .grid{ position:absolute; inset:0; background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size:46px 46px; opacity:.4; -webkit-mask-image:radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%); mask-image:radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%); }
+  .bg-fx .orb{ position:absolute; border-radius:50%; filter:blur(80px); }
+  .bg-fx .o1{ width:420px; height:420px; background:var(--accent); opacity:.24; top:-140px; left:-100px; animation:drift1 22s ease-in-out infinite; }
+  .bg-fx .o2{ width:360px; height:360px; background:var(--accent-2); opacity:.2; bottom:-160px; right:-100px; animation:drift2 27s ease-in-out infinite; }
+  .bg-fx .o3{ width:280px; height:280px; background:var(--accent-dim); opacity:.18; top:35%; left:55%; animation:drift1 19s ease-in-out infinite reverse; }
+  .bg-fx .scan{ position:absolute; left:0; right:0; top:-160px; height:160px; background:linear-gradient(to bottom, transparent, rgba(91,143,217,0.06), transparent); animation:scanmove 10s linear infinite; }
+  @keyframes drift1{ 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(70px,45px) scale(1.15);} }
+  @keyframes drift2{ 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(-55px,-35px) scale(1.12);} }
+  @keyframes scanmove{ 0%{ transform:translateY(0);} 100%{ transform:translateY(calc(100vh + 160px));} }
+
   @media (prefers-reduced-motion: reduce){
-    .brand::after,.kicker .dot{animation:none;}
+    html{scroll-behavior:auto;}
+    .bg-fx .orb, .bg-fx .scan, .brand::after{ animation:none !important; }
   }
 </style>
 </head>
 <body>
-<div class="progress"><span id="progressBar"></span></div>
 
 <header>
   <div class="bar">
@@ -210,24 +159,21 @@
 </header>
 
 <main>
-  <section class="article-hero">
-    <div class="kicker"><span class="dot"></span>WINDOWS MEMORY FORENSICS · PART 01</div>
+  <div class="kicker"><span class="dot"></span>WINDOWS MEMORY FORENSICS — PART 01</div>
   <h1>pslist &amp; psscan: two different views of the same memory image</h1>
   <p class="dek">Volatility can tell you what processes were running on a system in more than one way — and the two most basic plugins don't always agree. Understanding why is the first real lesson in Windows memory forensics.</p>
 
   <div class="meta">
-    <span><b>Series</b> · Windows Memory Forensics</span>
-    <span><b>Stack</b> · Volatility 3 · _EPROCESS · DKOM</span>
-    <span><b>Read</b> · ~14 min</span>
+    <span><b>Series</b> — Windows Memory Forensics, Part 01</span>
+    <span><b>Topic</b> — Volatility, _EPROCESS, DKOM</span>
+    <span><b>Read</b> — ~14 min</span>
   </div>
-  </section>
 
-  <div class="layout">
-    <article>
+  <article>
     <p class="lede">When analyzing a Windows memory image with Volatility, one of the first questions we usually ask is: what processes were present on the system? At first that sounds simple — run <code>pslist</code>, get a list, start investigating. But memory forensics gets interesting once we ask a harder question: how does Volatility actually know that a process exists?</p>
     <p>To answer that, we need to understand how Windows represents processes in kernel memory. This part covers how Windows represents processes using <code>_EPROCESS</code>, the role of <code>ActiveProcessLinks</code>, how <code>pslist</code> enumerates processes and why it can miss some, how <code>psscan</code> discovers process objects directly from memory using pool tags, why <code>psscan</code> can return terminated or stale objects, and why comparing the two plugins is a core forensic workflow.</p>
 
-    <h2 id="s01"><span class="num">01</span>Volatility 2 vs Volatility 3</h2>
+    <h2><span class="num">01</span>Volatility 2 vs Volatility 3</h2>
     <p>The commands differ between framework versions, though the underlying Windows concepts don't change.</p>
     <h3>Volatility 2</h3>
     <pre><code class="cmd">vol.py -f memory.raw pslist
@@ -238,7 +184,7 @@ vol.py -f memory.raw psscan</code></pre>
 python vol.py -f memory.raw windows.psscan</code></pre>
     <p>Volatility 3 uses a newer, symbol-based architecture. The framework changed — the concepts we're investigating (<code>_EPROCESS</code>, process lists, process objects in memory) did not.</p>
 
-    <h2 id="s02"><span class="num">02</span>pslist — enumerating the active process list</h2>
+    <h2><span class="num">02</span>pslist — enumerating the active process list</h2>
     <p>The easiest way to think about <code>pslist</code>: it follows Windows' active process list and enumerates whatever is connected to it.</p>
 
     <h3>_EPROCESS — the Windows process object</h3>
@@ -263,7 +209,7 @@ python vol.py -f memory.raw windows.psscan</code></pre>
     -&gt; next ActiveProcessLinks -&gt; next _EPROCESS -&gt; ...</pre>
     <p>So <code>windows.pslist</code> isn't searching memory for process names — it's walking Windows' own understanding of "which processes are active," using kernel structure knowledge. Instead of "pslist gives me processes," think: <strong>pslist gives me the processes reachable through the active process list.</strong> That distinction matters a great deal during rootkit investigations.</p>
 
-    <h2 id="s03"><span class="num">03</span>The blind spot of pslist</h2>
+    <h2><span class="num">03</span>The blind spot of pslist</h2>
     <p>What happens if a malicious kernel-level component modifies the process list directly? One technique for this is <strong>DKOM — Direct Kernel Object Manipulation</strong>, where an attacker manipulates kernel objects directly.</p>
     <pre>Normal:
 PsActiveProcessHead -&gt; explorer.exe -&gt; svchost.exe -&gt; malware.exe
@@ -275,7 +221,7 @@ malware.exe's _EPROCESS still exists in memory,
 but is no longer linked into the active process list.</pre>
     <p>The process object can still exist in memory even though it's no longer reachable through the list. Since <code>pslist</code> depends on that list, it may simply not see it. <strong>Not appearing in pslist does not prove a process never existed.</strong></p>
 
-    <h2 id="s04"><span class="num">04</span>psscan — searching memory for process objects</h2>
+    <h2><span class="num">04</span>psscan — searching memory for process objects</h2>
     <p>This is where <code>psscan</code> takes a different approach: instead of following <code>ActiveProcessLinks</code>, it searches memory for structures that look like process objects — which means understanding the Windows kernel pool.</p>
     <p>Windows dynamically allocates kernel objects from memory pools, and each pool allocation can carry identifying metadata known as a <strong>Pool Tag</strong>. For a process object, the pool tag associated with <code>_EPROCESS</code> is <code>Proc</code>. Conceptually:</p>
     <pre>Search memory for pool allocations
@@ -291,7 +237,7 @@ but is no longer linked into the active process list.</pre>
       <figcaption>Walkthrough — <code>psscan</code> sweeping kernel pool allocations for the <code>'Proc'</code> tag and recovering an unlinked <code>_EPROCESS</code> object.</figcaption>
     </figure>
 
-    <h2 id="s05"><span class="num">05</span>Why can psscan find more processes?</h2>
+    <h2><span class="num">05</span>Why can psscan find more processes?</h2>
     <p>Suppose <code>pslist</code> returns <code>System</code>, <code>explorer.exe</code>, <code>svchost.exe</code> — but <code>psscan</code> also returns a fourth entry, <code>suspicious.exe</code>. At first glance that looks like hidden malware. It isn't automatically that. Three explanations are common:</p>
     <ul>
       <li><strong>Active but unlinked</strong> — the <code>_EPROCESS</code> object may still exist in memory while no longer reachable through <code>ActiveProcessLinks</code>, consistent with DKOM-style hiding.</li>
@@ -299,7 +245,7 @@ but is no longer linked into the active process list.</pre>
       <li><strong>Stale or reused memory</strong> — kernel memory is constantly allocated and freed, and a region that once held a process object can still contain enough recognizable data to be identified. A <code>psscan</code> hit does not automatically mean "this was running at acquisition time."</li>
     </ul>
 
-    <h2 id="s06"><span class="num">06</span>pslist vs psscan</h2>
+    <h2><span class="num">06</span>pslist vs psscan</h2>
     <table>
       <tr><th></th><th>pslist</th><th>psscan</th></tr>
       <tr><td>Main technique</td><td>Active process list traversal</td><td>Memory-based process-object scanning</td></tr>
@@ -313,10 +259,10 @@ but is no longer linked into the active process list.</pre>
     </table>
     <p>Neither plugin is "better" — they provide different views of the same memory image. <code>pslist</code> asks what's reachable through the active list; <code>psscan</code> asks what process objects can be discovered independently of it.</p>
 
-    <h2 id="s07"><span class="num">07</span>The most important forensic scenario</h2>
+    <h2><span class="num">07</span>The most important forensic scenario</h2>
     <p>The interesting case is a process — say <code>malware.exe</code>, PID 1800 — that appears in <code>psscan</code> but not in <code>pslist</code>. That's a forensic discrepancy, and a lead, not a verdict. Possible explanations: recently terminated, unlinked/hidden, a stale process object, or a memory/acquisition artifact. We still have to investigate it.</p>
 
-    <h2 id="s08"><span class="num">08</span>Investigating the discrepancy</h2>
+    <h2><span class="num">08</span>Investigating the discrepancy</h2>
     <p>Once a process shows up only in <code>psscan</code>, correlate it with additional evidence:</p>
     <ul>
       <li><strong>Process lifetime</strong> — check <code>CreateTime</code> / <code>ExitTime</code> to see whether the object represents an already-terminated process. No single field is absolute proof either way.</li>
@@ -329,10 +275,10 @@ but is no longer linked into the active process list.</pre>
     </ul>
     <p>The goal throughout: figure out what this process was actually doing.</p>
 
-    <h2 id="s09"><span class="num">09</span>Why use both together</h2>
+    <h2><span class="num">09</span>Why use both together</h2>
     <p>Running only <code>pslist</code> means relying entirely on the active process list. Running only <code>psscan</code> means you may encounter terminated or stale remnants with no easy way to tell them apart. Comparing both — <code>pslist</code> + <code>psscan</code> → discrepancy → further investigation — produces a far stronger workflow than either alone. The goal isn't a plugin that says "this is malware." It's identifying inconsistencies worth investigating with additional evidence.</p>
 
-    <h2 id="s10"><span class="num">10</span>Practical workflow</h2>
+    <h2><span class="num">10</span>Practical workflow</h2>
     <ol>
       <li><strong>Run pslist</strong> — <code>python vol.py -f memory.raw windows.pslist</code>. Note PID, PPID, process name, creation time, and relationships.</li>
       <li><strong>Run psscan</strong> — <code>python vol.py -f memory.raw windows.psscan</code>. Compare against <code>pslist</code>, and flag <code>psscan</code>-only processes.</li>
@@ -340,7 +286,7 @@ but is no longer linked into the active process list.</pre>
       <li><strong>Go deeper</strong> — VADs, memory mappings, injected code, loaded modules, handles, network artifacts, command line. This is where process enumeration turns into real memory forensics.</li>
     </ol>
 
-    <h2 id="s11"><span class="num">11</span>Key takeaway</h2>
+    <h2><span class="num">11</span>Key takeaway</h2>
     <p><code>pslist</code> ≠ <code>psscan</code>. They aren't two commands that happen to produce the same list — they use fundamentally different approaches to identify processes. <code>pslist</code> tells you what's exposed through the active process list; <code>psscan</code> tells you what process objects can be discovered independently of it. When the results disagree, don't immediately label the process malicious — investigate why the views disagree: terminated process, stale memory, an unlinked/hidden process, or a memory/acquisition artifact. That mindset matters more than memorizing plugin syntax.</p>
     <p>Windows memory forensics is fundamentally about understanding how the OS represents state in memory. For process analysis, that starts with <code>_EPROCESS</code> and its <code>ActiveProcessLinks</code>, and from there, why <code>pslist</code> and <code>psscan</code> can disagree — and why that disagreement is where the real forensic value lives.</p>
 
@@ -356,47 +302,23 @@ but is no longer linked into the active process list.</pre>
         <li>Microsoft Learn — ExAllocatePool2. Windows kernel pool allocation and the use of pool tags to identify allocation paths.</li>
       </ol>
     </div>
-    </article>
 
-    <aside class="toc" aria-label="Table of contents">
-      <div class="toc-title">ON THIS PAGE</div>
-      <a href="#s01">01 · Frameworks</a>
-      <a href="#s02">02 · pslist</a>
-      <a href="#s03">03 · pslist blind spot</a>
-      <a href="#s04">04 · psscan</a>
-      <a href="#s05">05 · Why more processes?</a>
-      <a href="#s06">06 · Comparison</a>
-      <a href="#s07">07 · Forensic scenario</a>
-      <a href="#s08">08 · Investigating</a>
-      <a href="#s09">09 · Together</a>
-      <a href="#s10">10 · Workflow</a>
-      <a href="#s11">11 · Takeaway</a>
-    </aside>
-  </div>
+    <div class="series-nav">
+      <span></span>
+      <a href="/writeups/ldrmodules-dll-injection.html">Part 02 — DLL injection &amp; ldrmodules →</a>
+    </div>
+  </article>
 </main>
 
 <footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
-</body>
-</html>
 
 <script>
 (function(){
-  var bar=document.getElementById('progressBar');
-  var headings=[].slice.call(document.querySelectorAll('article h2[id]'));
-  function update(){
-    var scrollTop=window.scrollY;
-    var height=document.documentElement.scrollHeight-window.innerHeight;
-    bar.style.width=(height>0?(scrollTop/height*100):0)+'%';
-    var current=headings[0];
-    headings.forEach(function(h){if(h.getBoundingClientRect().top<=130) current=h;});
-    document.querySelectorAll('.toc a').forEach(function(a){a.classList.remove('active');});
-    if(current){
-      var link=document.querySelector('.toc a[href="#'+current.id+'"]');
-      if(link) link.classList.add('active');
-    }
-  }
-  window.addEventListener('scroll',update,{passive:true});
-  update();
+  var fx = document.createElement('div');
+  fx.className = 'bg-fx';
+  fx.innerHTML = '<div class="grid"></div><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span><div class="scan"></div>';
+  document.body.insertBefore(fx, document.body.firstChild);
 })();
 </script>
 </body>
+</html>
