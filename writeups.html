@@ -94,11 +94,16 @@
 <main>
   <div class="kicker"><span class="dot"></span>WRITEUPS</div>
   <h1>Notes from the SOC floor</h1>
-  <p class="sub">Practical notes from SOC investigations and security research — memory forensics, detection engineering, threat hunting, and the tools behind the analysis.</p>
+  <p class="sub">Technical writeups on memory forensics, detection engineering, and the tools I use to investigate. Written as I work through the material.</p>
 
   <div class="list">
+    <a class="item" href="/writeups/ldrmodules-dll-injection.html">
+      <div class="item-meta">WINDOWS MEMORY FORENSICS — PART 02</div>
+      <div class="title">DLL analysis, reflective injection, and process hollowing: what's really loaded inside a process</div>
+      <div class="desc">Parsing EPROCESS/PEB/VAD, detecting DLL injection with windows.ldrmodules by cross-referencing the PEB against the VAD, and recognizing reflective injection and process hollowing — with a Stuxnet case study.</div>
+    </a>
     <a class="item" href="/writeups/pslist-psscan.html">
-      <div class="item-meta">WINDOWS MEMORY FORENSICS · PART 01 · VOLATILITY</div>
+      <div class="item-meta">WINDOWS MEMORY FORENSICS — PART 01</div>
       <div class="title">pslist &amp; psscan: two different views of the same memory image</div>
       <div class="desc">How Volatility enumerates Windows processes two different ways — following the active process list vs. scanning memory for process objects by pool tag — and why the discrepancy between them is the real forensic signal.</div>
     </a>
