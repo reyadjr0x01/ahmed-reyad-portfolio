@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLL Analysis &amp; Reflective Injection — Windows Memory Forensics // 0xREYAD</title>
+<meta name="description" content="Part 02 of a Windows memory forensics series: parsing EPROCESS/PEB/VAD, detecting DLL injection with windows.ldrmodules, reflective injection, and process hollowing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0e12;
+    --panel:#111620;
+    --paper:#e9e4d4;
+    --accent:#5b8fd9;
+    --accent-dim:#33507a;
+    --accent-2:#4f8a86;
+    --line: rgba(233,228,212,0.14);
+    --text: #cfd3d6;
+    --text-dim:#7c848c;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--mono);
+    line-height:1.7;
+  }
+  a{color:var(--accent); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  header{
+    position:sticky; top:0; z-index:10;
+    background:rgba(11,14,18,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .bar{
+    max-width:860px; margin:0 auto; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{font-family:var(--head); font-weight:700; font-size:15px; color:var(--paper); letter-spacing:.02em; position:relative;}
+  .brand span{color:var(--accent);}
+  .brand::after{ content:'_'; color:var(--accent); margin-left:2px; animation:blink 1.1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:0;} }
+  .back{font-size:13px; color:var(--text-dim); position:relative; padding-bottom:4px;}
+  .back::after{ content:''; position:absolute; left:0; bottom:-2px; width:0; height:1px; background:var(--accent); box-shadow:0 0 6px var(--accent); transition:width .25s ease; }
+  .back:hover{color:var(--accent); text-decoration:none;}
+  .back:hover::after{ width:100%; }
+
+  main{max-width:1005px; margin:0 auto; padding:56px 24px 96px; position:relative; z-index:1;}
+
+  .kicker{
+    font-size:12px; color:var(--accent-2); letter-spacing:.06em;
+    display:flex; gap:10px; align-items:center; margin-bottom:18px;
+  }
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2); box-shadow:0 0 8px var(--accent-2);}
+
+  h1{
+    font-family:var(--head); font-weight:700; color:var(--paper);
+    font-size:clamp(28px,4.2vw,40px); line-height:1.2; margin-bottom:14px;
+  }
+  .dek{color:var(--text-dim); font-size:16px; max-width:62ch; margin-bottom:28px;}
+
+  .meta{
+    display:flex; flex-wrap:wrap; gap:18px; font-size:12.5px; color:var(--text-dim);
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    padding:14px 0; margin-bottom:40px;
+  }
+  .meta b{color:var(--text); font-weight:500;}
+
+  article h2{
+    font-family:var(--head); font-weight:600; color:var(--paper);
+    font-size:22px; margin:48px 0 14px; padding-top:6px;
+    border-top:1px solid var(--line);
+    transition:border-color .3s ease;
+  }
+  article h2:hover{ border-color:var(--accent-dim); }
+  article h2 .num{color:var(--accent); margin-right:10px; font-family:var(--mono); font-size:15px;}
+  article h3{
+    font-family:var(--head); font-weight:600; color:var(--text);
+    font-size:16px; margin:26px 0 10px;
+  }
+  article h4{
+    font-family:var(--head); font-weight:600; color:var(--paper);
+    font-size:14.5px; margin:20px 0 8px;
+  }
+  article p{margin-bottom:14px; max-width:72ch; color:var(--text);}
+  article p.lede{color:var(--paper); font-size:17px;}
+  article ul, article ol{margin:0 0 16px 22px; max-width:70ch;}
+  article li{margin-bottom:6px;}
+  article strong{color:var(--paper); font-weight:600;}
+  blockquote{border-left:2px solid var(--accent-2); padding:4px 18px; margin:20px 0; color:var(--paper); font-size:16px; max-width:64ch;}
+
+  .callout{
+    background:var(--panel); border-left:2px solid var(--accent);
+    padding:14px 18px; margin:20px 0; font-size:14.5px; color:var(--text);
+    transition:box-shadow .3s ease;
+  }
+  .callout:hover{ box-shadow:0 0 24px -8px rgba(91,143,217,.4); }
+  .callout.strong{ border-left-color:#e5b85c; }
+
+  pre{
+    background:var(--panel); border:1px solid var(--line); border-radius:4px;
+    padding:16px 18px; overflow-x:auto; font-size:13px; color:var(--paper);
+    margin:16px 0 22px; line-height:1.55;
+  }
+  code{font-family:var(--mono); font-size:0.92em;}
+  p code, li code, h4 code{background:var(--panel); padding:1px 6px; border-radius:3px; color:var(--accent);}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 24px; font-size:13.5px;}
+  th, td{border:1px solid var(--line); padding:9px 12px; text-align:left;}
+  th{color:var(--paper); font-family:var(--head); font-weight:600; background:var(--panel);}
+  td{color:var(--text);}
+  table code{color:var(--accent);}
+
+  .widget-frame{margin:22px 0 28px;}
+  .widget-frame iframe{width:100%; aspect-ratio:16/9; border:1px solid var(--line); border-radius:6px; background:var(--panel); display:block; transition:box-shadow .3s ease, border-color .3s ease;}
+  .widget-frame.tall iframe{aspect-ratio:auto; height:820px;}
+  .widget-frame:hover iframe{ border-color:var(--accent-dim); box-shadow:0 0 30px -12px rgba(91,143,217,.4); }
+  .widget-frame figcaption{margin-top:9px; font-size:12.5px; color:var(--text-dim);}
+
+  .case-box{ border:1px solid var(--line); border-radius:4px; padding:18px 20px; margin:18px 0; }
+  .case-box h4{ margin-top:0; }
+
+  .series-nav{margin-top:56px; padding-top:22px; border-top:1px solid var(--line); display:flex; justify-content:space-between; flex-wrap:wrap; gap:14px; font-size:13.5px;}
+  .series-nav a{color:var(--text-dim);}
+  .series-nav a:hover{color:var(--accent);}
+
+  footer{border-top:1px solid var(--line); padding:28px 24px; text-align:center; font-size:12px; color:var(--text-dim); position:relative; z-index:1;}
+
+  /* ambient life: drifting glow, moving grid */
+  .bg-fx{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+  .bg-fx .grid{ position:absolute; inset:0; background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size:46px 46px; opacity:.4; -webkit-mask-image:radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%); mask-image:radial-gradient(ellipse 75% 55% at 50% 0%, #000 35%, transparent 100%); }
+  .bg-fx .orb{ position:absolute; border-radius:50%; filter:blur(80px); }
+  .bg-fx .o1{ width:420px; height:420px; background:var(--accent); opacity:.24; top:-140px; left:-100px; animation:drift1 22s ease-in-out infinite; }
+  .bg-fx .o2{ width:360px; height:360px; background:var(--accent-2); opacity:.2; bottom:-160px; right:-100px; animation:drift2 27s ease-in-out infinite; }
+  .bg-fx .o3{ width:280px; height:280px; background:var(--accent-dim); opacity:.18; top:35%; left:55%; animation:drift1 19s ease-in-out infinite reverse; }
+  .bg-fx .scan{ position:absolute; left:0; right:0; top:-160px; height:160px; background:linear-gradient(to bottom, transparent, rgba(91,143,217,0.06), transparent); animation:scanmove 10s linear infinite; }
+  @keyframes drift1{ 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(70px,45px) scale(1.15);} }
+  @keyframes drift2{ 0%,100%{ transform:translate(0,0) scale(1);} 50%{ transform:translate(-55px,-35px) scale(1.12);} }
+  @keyframes scanmove{ 0%{ transform:translateY(0);} 100%{ transform:translateY(calc(100vh + 160px));} }
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    .bg-fx .orb, .bg-fx .scan, .brand::after{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">0x<span>REYAD</span></div>
+    <a class="back" href="/writeups.html">&larr; All writeups</a>
+  </div>
+</header>
+
+<main>
+  <div class="kicker"><span class="dot"></span>WINDOWS MEMORY FORENSICS — PART 02</div>
+  <h1>DLL analysis, reflective injection, and process hollowing: what's really loaded inside a process</h1>
+  <p class="dek">Part 01 covered finding processes Windows doesn't want you to see. Part 02 covers what's actually loaded and running inside a process once you've found it — parsing EPROCESS/PEB/VAD, detecting DLL injection with <code>windows.ldrmodules</code>, and recognizing reflective injection and process hollowing.</p>
+
+  <div class="meta">
+    <span><b>Series</b> — Windows Memory Forensics, Part 02</span>
+    <span><b>Topic</b> — EPROCESS, PEB, VAD, ldrmodules, Reflective Injection</span>
+    <span><b>Read</b> — ~16 min</span>
+  </div>
+
+  <article>
+    <p class="lede">In Part 01 we covered how Windows tracks processes (<code>pslist</code>) and how to find processes that have been hidden or removed from that tracking (<code>psscan</code>). Once a suspicious process has been identified, the next question is usually:</p>
+    <blockquote>What is actually loaded and running inside that process?</blockquote>
+    <p>This part covers how to answer that: parsing the core process structures, detecting DLL injection through the Windows loader, understanding reflective (loader-less) injection, and identifying process hollowing — using the <code>windows.ldrmodules</code> plugin as the central tool.</p>
+
+    <h2><span class="num">01</span>Parsing process-related structures</h2>
+    <p>After identifying the kernel structures relevant to a process, the next step is to parse the structures that describe what's actually running inside it.</p>
+
+    <h3>1.1 EPROCESS (Executive Process Block)</h3>
+    <p>Represents every running process. Contains:</p>
+    <ul>
+      <li>PID</li>
+      <li>Parent process</li>
+      <li>Threads</li>
+      <li>Access Token</li>
+      <li>Handles</li>
+      <li>PEB</li>
+      <li>VAD</li>
+    </ul>
+    <div class="callout">Core process structure in Windows memory.</div>
+
+    <h3>1.2 PEB (Process Environment Block)</h3>
+    <p>Stores process-specific information:</p>
+    <ul>
+      <li>Executable path</li>
+      <li>Command line</li>
+      <li>Environment variables</li>
+      <li>Loaded DLLs</li>
+    </ul>
+    <pre><code>powershell.exe -enc &lt;Base64 Payload&gt;</code></pre>
+
+    <h3>1.3 DLL List</h3>
+    <p>Each process maintains a linked list of loaded DLLs. Useful for detecting:</p>
+    <ul>
+      <li>DLL Injection</li>
+      <li>Unusual DLL loading</li>
+      <li>Malicious modules</li>
+    </ul>
+
+    <h3>1.4 VAD Tree (Virtual Address Descriptor)</h3>
+    <p>Tracks every memory region allocated to a process. Used to identify:</p>
+    <ul>
+      <li>Memory allocations</li>
+      <li>Executable pages</li>
+      <li>Injected code</li>
+      <li>Memory permissions</li>
+    </ul>
+    <p>The VAD Tree is one of the most important structures for detecting code injection. Since it is stored in kernel memory, it is much harder for malware to manipulate than user-mode structures like the PEB.</p>
+
+    <figure class="widget-frame tall">
+      <iframe src="/writeups/assets/process-memory-structures.html" title="Interactive: Windows process memory structures" loading="lazy"></iframe>
+      <figcaption>Interactive map — how EPROCESS, PEB, the DLL lists, and the VAD tree relate to each other inside a process.</figcaption>
+    </figure>
+
+    <h2><span class="num">02</span>Detecting DLL injection using the Windows API</h2>
+    <p>Simple DLL Injection usually relies on a well-known sequence of Windows APIs:</p>
+    <pre>OpenProcess()
+VirtualAllocEx()
+WriteProcessMemory()
+CreateRemoteThread()
+LoadLibraryA()</pre>
+    <p>Since <code>LoadLibrary()</code> is used, Windows <strong>registers the DLL normally</strong>, making it visible in several process structures.</p>
+
+    <h3>2.1 Where are loaded DLLs stored?</h3>
+    <p><strong>Process Environment Block (PEB)</strong> — contains linked lists of loaded modules:</p>
+    <ul>
+      <li><code>InLoadOrderModuleList</code></li>
+      <li><code>InMemoryOrderModuleList</code></li>
+      <li><code>InInitializationOrderModuleList</code> (InInit)</li>
+    </ul>
+    <p>These are used by the <code>dlllist</code> and <code>ldrmodules</code> plugins.</p>
+    <p><strong>Virtual Address Descriptor (VAD)</strong> — tracks every memory region of a process. Stores:</p>
+    <ul>
+      <li>Base Address</li>
+      <li>Memory Protection</li>
+      <li>Mapped File Path</li>
+    </ul>
+
+    <h3>2.2 Volatility plugins: dlllist vs ldrmodules</h3>
+    <p><code>dlllist</code> — reads <strong>only the PEB</strong>. Shows loaded DLLs, base address, and load order. Cannot detect inconsistencies between the PEB and actual memory.</p>
+    <p><code>ldrmodules</code> — reads information from <strong>both</strong> the PEB and the VAD. Much better for detecting hidden or suspicious DLLs. It compares:</p>
+    <table>
+      <tr><th>Column</th><th>Meaning</th></tr>
+      <tr><td><code>InLoad</code></td><td>Present in PEB Load List</td></tr>
+      <tr><td><code>InInit</code></td><td>Present in Initialization List</td></tr>
+      <tr><td><code>InMem</code></td><td>Present in Memory List</td></tr>
+      <tr><td><code>MappedPath</code></td><td>Original file path from VAD</td></tr>
+      <tr><td><code>Base</code></td><td>DLL Base Address</td></tr>
+    </table>
+
+    <h3>2.3 What should analysts look for?</h3>
+    <p><strong>Suspicious DLL location</strong> — legitimate DLLs are normally loaded from <code>C:\Windows\System32</code>, <code>C:\Windows\WinSxS</code>, <code>C:\Program Files</code>. A suspicious example: <code>C:\Temp\winsrv.dll</code>. Indicators: loaded from a Temp folder, unusual filename, not part of the default Windows installation.</p>
+    <div class="callout"><strong>Why does <code>svchost.exe</code> show <code>InInit = False</code>?</strong> This is normal — the process executable itself is not included in the <code>InInitializationOrderModuleList</code>. Every normal process usually has one entry where <code>InInit = False</code>. Do not treat this alone as malware.</div>
+
+    <h3>2.4 Memory forensics tools</h3>
+    <ul>
+      <li><strong>Volatility</strong> — key plugins: <code>dlllist</code>, <code>ldrmodules</code></li>
+      <li><strong>MemProcFS</strong> — the <code>findevil</code> module can compare PEB and VAD and highlight anomalies automatically</li>
+    </ul>
+
+    <h2><span class="num">03</span>windows.ldrmodules — deep dive</h2>
+    <h3>3.1 Purpose</h3>
+    <p>Examines DLLs loaded into a process. Instead of relying only on the <strong>PEB</strong>, it compares multiple loader structures to identify inconsistencies.</p>
+
+    <h3>3.2 What it detects</h3>
+    <ul>
+      <li>Unlinked DLLs</li>
+      <li>Reflective DLL Injection</li>
+      <li>Non-memory-mapped modules</li>
+    </ul>
+
+    <h3>3.3 Why it matters</h3>
+    <p>Malware may load a DLL and then remove it from the PEB:</p>
+    <pre>DLL loaded into memory
+  ↓
+Removed from PEB
+  ↓
+windows.dlllist misses it
+  ↓
+windows.ldrmodules detects it</pre>
+
+    <h3>3.4 Purpose (comparison-based)</h3>
+    <p>Unlike <code>dlllist</code>, <code>ldrmodules</code> does <strong>not</strong> rely only on the PEB — it compares information from the PEB and the VAD.</p>
+
+    <h3>3.5 Information displayed</h3>
+    <table>
+      <tr><th>Column</th><th>Meaning</th></tr>
+      <tr><td>PID</td><td>Process ID</td></tr>
+      <tr><td>Process</td><td>Process Name</td></tr>
+      <tr><td>Base</td><td>Base address from VAD</td></tr>
+      <tr><td>InLoad</td><td>Present in InLoadOrder list</td></tr>
+      <tr><td>InInit</td><td>Present in InInitializationOrder list</td></tr>
+      <tr><td>InMem</td><td>Present in InMemoryOrder list</td></tr>
+      <tr><td>MappedPath</td><td>File path from VAD</td></tr>
+    </table>
+
+    <h3>3.6 Expected output</h3>
+    <p>A legitimate DLL should have <code>InLoad = True</code>, <code>InInit = True</code>, <code>InMem = True</code>, and a <code>MappedPath</code> present. This indicates it was loaded through the Windows Loader, registered in the PEB, and mapped from disk.</p>
+
+    <h3>3.7 Common false positives</h3>
+    <ol>
+      <li><strong>Process Executable</strong> — every process executable normally has <code>InInit = False</code> because executables are not stored in the Initialization list. Example: <code>lsass.exe</code> with <code>InLoad=True</code>, <code>InInit=False</code>, <code>InMem=True</code> is expected.</li>
+      <li><strong>Non-DLL image files</strong> — files such as <code>.fon</code>, <code>.mui</code>, <code>.winmd</code>, <code>.msstyles</code> may appear in Image Memory but are not DLLs, so they are absent from the PEB lists.</li>
+      <li><strong>Legitimate unloaded DLLs</strong> — sometimes a DLL remains mapped in the VAD but has not been loaded (or has already been unloaded); it may exist only in <code>MappedPath</code> without appearing in the PEB.</li>
+      <li><strong>SysWOW64 DLLs</strong> — Volatility 3 may incorrectly report some 32-bit SysWOW64 DLLs as missing from the PEB. It's recommended to compare results with Volatility 2.</li>
+    </ol>
+
+    <h3>3.8 Missing MappedPath — the strongest indicator</h3>
+    <div class="callout strong">This is one of the strongest indicators of malicious activity. Normally, every legitimate DLL loaded via the Windows Loader has a file path. If no path exists, the DLL may have been reflectively injected, manually mapped, or may never have existed on disk at all.</div>
+
+    <h3>3.9 How ldrmodules works</h3>
+    <p>Instead of asking "What DLLs does the PEB report?", it asks "What executable memory exists according to the VAD?" — then compares the VAD against the PEB. Any mismatch becomes suspicious.</p>
+
+    <h2><span class="num">04</span>Case studies</h2>
+
+    <div class="case-box">
+      <h4>4.1 Example 1 — normal process</h4>
+      <p><code>wininit.exe → ntmarta.dll</code>:</p>
+      <ul>
+        <li><code>InLoad = True</code></li>
+        <li><code>InInit = True</code></li>
+        <li><code>InMem = True</code></li>
+        <li><code>MappedPath</code> present</li>
+      </ul>
+      <p>Everything matches — this is normal.</p>
+    </div>
+
+    <div class="case-box">
+      <h4>4.2 Example 2 — Stuxnet</h4>
+      <p>Process: <code>lsass.exe</code>. Two suspicious regions appear.</p>
+      <p><strong>Region 1</strong> — Base <code>0x80000</code>. Missing from all PEB lists, no <code>MappedPath</code> → very strong evidence of an injected DLL.</p>
+      <p><strong>Region 2</strong> — Base <code>0x1000000</code>. Present in PEB, <code>InInit = False</code>, no <code>MappedPath</code>. At first glance <code>InInit = False</code> looks normal (process executable), but <code>MappedPath = empty</code> is <strong>not normal</strong> — the executable should point to <code>\Windows\System32\lsass.exe</code>. Since no backing file exists, this indicates <strong>Process Hollowing</strong>: the original executable has been removed from memory and replaced with malicious code.</p>
+    </div>
+
+    <h3>Correlating ldrmodules with malfind</h3>
+    <p>Both tools can identify the same suspicious memory region (e.g. base <code>0x80000</code>). If <code>ldrmodules</code> reports missing PEB/VAD consistency and <code>malfind</code> reports executable private memory, confidence in the detection increases significantly.</p>
+
+    <h3>HollowFind</h3>
+    <p><code>HollowFind</code> (a Volatility 2 plugin) automates detection of <strong>Process Hollowing</strong> by comparing PEB, VAD, and process image information. It is built on the same consistency-checking concept used by <code>ldrmodules</code>.</p>
+
+    <h2><span class="num">05</span>Reflective code injection</h2>
+    <h3>5.1 Definition</h3>
+    <p>Reflective DLL Injection loads code <strong>without using</strong> <code>LoadLibrary()</code>. Instead, the malware contains its own loader called a <strong>Reflective Loader</strong>.</p>
+
+    <h3>5.2 Why is it stealthier?</h3>
+    <p>Normal DLL Injection:</p>
+    <pre>LoadLibrary()
+  ↓
+Windows Loader
+  ↓
+DLL registered in PEB
+  ↓
+Easy to enumerate</pre>
+    <p>Reflective Injection:</p>
+    <pre>Reflective Loader
+  ↓
+DLL loaded manually
+  ↓
+No Windows Loader
+  ↓
+No PEB registration</pre>
+    <p>Result: many security tools cannot see the injected DLL.</p>
+
+    <h3>5.3 Advantages for attackers</h3>
+    <ul>
+      <li>No call to <code>LoadLibrary()</code></li>
+      <li>No disk access required</li>
+      <li>Memory-only execution</li>
+      <li>Smaller forensic footprint</li>
+      <li>Harder to detect</li>
+    </ul>
+
+    <h3>5.4 Memory-only payloads</h3>
+    <p>The payload can come directly from the network, shellcode, PowerShell, or a downloaded buffer — no DLL needs to exist on disk.</p>
+
+    <h3>5.5 Common offensive frameworks</h3>
+    <p>Many well-known tools use Reflective Injection: Metasploit, Cobalt Strike, PowerSploit, Empire, DoublePulsar. Nation-state malware has also adopted this technique.</p>
+
+    <h3>5.6 Why is memory analysis important?</h3>
+    <p>Reflective Injection hides from Process Explorer, DLL enumeration, and API monitoring. However, memory artifacts still remain — memory forensics is one of the best ways to detect it.</p>
+
+    <h2><span class="num">06</span>The VAD tree in depth</h2>
+    <p>Windows must record that a region of memory has been reserved. But where? Every reserved region gets its own structure: the <strong>Virtual Address Descriptor (VAD)</strong>.</p>
+    <p>For example:</p>
+    <pre>Start Address = 0x50000000
+End Address   = 0x5000FFFF
+Protection    = PAGE_READWRITE
+Type          = MEM_PRIVATE</pre>
+    <p>This single VAD describes the entire region. If a DLL is loaded — for example:</p>
+    <pre>LoadLibrary("kernel32.dll")</pre>
+    <p>— Windows creates a VAD for it as well. Every page has its own PTE (Page Table Entry), but a single VAD can span hundreds or thousands of pages, each with its own independent PTE.</p>
+
+    <h2><span class="num">07</span>Investigation workflow</h2>
+    <pre>Run ldrmodules
+        ↓
+Compare PEB ↔ VAD
+        ↓
+Missing DLL?
+        ↓
+Missing MappedPath?
+        ↓
+PEB Lists Inconsistent?
+        ↓
+Likely Code Injection /
+Reflective Injection /
+Process Hollowing</pre>
+
+    <h2><span class="num">08</span>Key takeaway</h2>
+    <p><code>dlllist</code> trusts the PEB completely, which makes it fast but blind to anything the malware has hidden from the loader's own bookkeeping. <code>ldrmodules</code> closes that gap by cross-referencing the PEB against the VAD — the same "trust but verify across independent sources" principle we saw with <code>pslist</code> vs <code>psscan</code> in Part 01. A missing <code>MappedPath</code>, an unexpected <code>InInit = False</code> on a non-executable module, or a region flagged by both <code>ldrmodules</code> and <code>malfind</code> are the strongest signals of DLL injection, reflective injection, or process hollowing.</p>
+
+    <div class="series-nav">
+      <a href="/writeups/pslist-psscan.html">&larr; Part 01 — pslist &amp; psscan</a>
+      <a href="/writeups.html">All writeups →</a>
+    </div>
+  </article>
+</main>
+
+<footer>© 2026 Ahmed Mohamed Reyad — All rights reserved</footer>
+
+<script>
+(function(){
+  var fx = document.createElement('div');
+  fx.className = 'bg-fx';
+  fx.innerHTML = '<div class="grid"></div><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span><div class="scan"></div>';
+  document.body.insertBefore(fx, document.body.firstChild);
+})();
+</script>
+</body>
+</html>
